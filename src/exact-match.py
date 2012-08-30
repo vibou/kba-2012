@@ -35,12 +35,16 @@ except:
 from kba_thrift.ttypes import StreamItem, StreamTime, ContentItem
 
 query_list = None
+match_list = None
 
 def log(m, newline='\n'):
   sys.stderr.write(m + newline)
   sys.stderr.flush()
 
 def parse_query(query_file):
+  '''
+  parse the query
+  '''
   queries = json.load(open(query_file))
   global query_list
   query_list = queries['topic_names']
@@ -55,6 +59,9 @@ def parse_query(query_file):
     print '%d\t%s' % (index, item)
 
 def format_query(query):
+  '''
+  format the original query
+  '''
   # remove parentheses
   parentheses_regex = re.compile( '\(.*\)' )
   query = parentheses_regex.sub( '', query)
@@ -68,7 +75,10 @@ def format_query(query):
   query = space_regex.sub( ' ', query)
   return query
 
-def trim(str):
+def sanitize(str):
+  '''
+  sanitize the streaming item
+  '''
   ## replace non word character to space
   non_word_regex = re.compile( '(\W+|\_+)' )
   str = non_word_regex.sub( ' ', str)
@@ -78,18 +88,30 @@ def trim(str):
   str = space_regex.sub( ' ', str)
   return query
 
+def process_item(id, data):
+  '''
+  process the streaming item: applying exact match for each of the query
+  entity
+  '''
+  data = sanitize(data)
 
-def parse_thift_data(thrift_dir, date_hour):
+  global match_list
+  for index, query in enumerate(query_list):
+    p = re.compile( query )
+    if p.match(data):
+      match_list[query][id] = 1
+
+def parse_thift_data(thrift_dir):
   '''
   Parse the thift data, apply exact matching over the streaming documents
   '''
-  for fname in os.listdir(os.path.join(thrift_dir, date_hour)):
+  for fname in os.listdir(thrift_dir):
     ## ignore other files, e.g. stats.json
     if not fname.endswith('.xz.gpg'): continue
 
     ### reverse the steps from above:
     ## load the encrypted data
-    fpath = os.path.join(thrift_dir, date_hour, fname)
+    fpath = os.path.join(thrift_dir, fname)
     thrift_data = open(fpath).read()
 
     assert len(thrift_data) > 0, "failed to load: %s" % fpath
@@ -108,20 +130,13 @@ def parse_thift_data(thrift_dir, date_hour):
       except EOFError:
         break
 
-      ## dump data
-      print stream_item.doc_id
-      print stream_item.abs_url
-      print stream_item.original_url
-      print stream_item.body.cleansed
-      print '\n\n'
+      ## process data
+      process_item(stream_item.doc_id, stream_item.body.cleansed
+      print '%s' % stream_item.doc_id
 
-      ## ensure that json source_metadata can still be decoded
-      source_metadata = json.loads(stream_item.source_metadata)
-      if stream_item.source == 'news':
-        assert 'language' in source_metadata
+    ## close that transport
+    transport.close()
 
-      ## close that transport
-      transport.close()
     # free memory
     thrift_data = None
 
