@@ -109,6 +109,9 @@ def decrypt_and_verify(gpg_key_path, thrift_dir, date_hour, save_dir):
         open(os.path.join(save_data_dir, '.'.join(parts)),
             'wb').write(thrift_data)
 
+        ## free memory
+        thrift_data = None
+
 
 if __name__ == '__main__':
     import argparse

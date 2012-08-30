@@ -4,3 +4,4 @@ gpg/
 training-data/
 test/
 *.pyc
+log/
