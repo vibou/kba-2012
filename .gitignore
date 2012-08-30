@@ -1,3 +1,6 @@
-corpus
+corpus/
+org-corpus
+gpg/
 training-data/
 test/
+*.pyc
