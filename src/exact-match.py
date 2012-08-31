@@ -131,8 +131,9 @@ def parse_thift_data(thrift_dir):
         break
 
       ## process data
-      process_item(stream_item.doc_id, stream_item.body.cleansed
-      print '%s' % stream_item.doc_id
+      process_item(stream_item.doc_id, stream_item.body.cleansed)
+      ## suppress the verbose output
+      #print '%s' % stream_item.doc_id
 
     ## close that transport
     transport.close()

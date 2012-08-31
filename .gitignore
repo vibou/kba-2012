@@ -1,7 +1,12 @@
-corpus/
-org-corpus
-gpg/
-training-data/
-test/
 *.pyc
+*.swp
+
+org-corpus
+
+corpus/
+gpg/
+training/
+test/
 log/
+query/
+redis/
