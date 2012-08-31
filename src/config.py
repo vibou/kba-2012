@@ -18,8 +18,7 @@ class RedisDB(object):
     formatted_query_list = 'formatted_query_list'
 
     # specifications related to bootstraping
-    # url => topic_id
-    url2topic_hash = 'url2topic_hash'
+    ret_item_list = 'ret_item_list'
 
     # mutex
     async_mutex = 'async_mutex'

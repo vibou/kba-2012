@@ -1,11 +1,14 @@
 #!/usr/bin/python
 '''
 apply exact matching of query entities to the streaming documents
+
+exact-match.py <query> <thrift_dir>
 '''
 
 import re
 import os
 import sys
+import traceback
 import gzip
 import json
 import time
@@ -34,119 +37,167 @@ except:
 
 from kba_thrift.ttypes import StreamItem, StreamTime, ContentItem
 
-query_list = None
-match_list = None
+import redis
+from config import RedisDB
 
 def log(m, newline='\n'):
   sys.stderr.write(m + newline)
   sys.stderr.flush()
 
-def parse_query(query_file):
+class ExactMatch():
   '''
-  parse the query
+  Apply exact matching
   '''
-  queries = json.load(open(query_file))
-  global query_list
-  query_list = queries['topic_names']
+  _query_hash = None
+  _org_query_hash = None
+  _match_list = None
 
-  ## format the query list
-  for index, item in enumerate(query_list):
-    item = format_query(item)
-    query_list[index] = item
+  _rdb = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.exact_match_db)
 
-  ## dump the query list
-  for index, item in enumerate(query_list):
-    print '%d\t%s' % (index, item)
+  def parse_query(self, query_file):
+    '''
+    parse the query
+    '''
+    queries = json.load(open(query_file))
+    query_list = queries['topic_names']
 
-def format_query(query):
-  '''
-  format the original query
-  '''
-  # remove parentheses
-  parentheses_regex = re.compile( '\(.*\)' )
-  query = parentheses_regex.sub( '', query)
+    ## format the query list
+    for index, item in enumerate(query_list):
+      self._org_query_hash[index] = item;
+      item = self.format_query(item)
+      self._query_hash[index] = item;
 
-  ## replace non word character to space
-  non_word_regex = re.compile( '(\W+|\_+)' )
-  query = non_word_regex.sub( ' ', query)
+    ## dump the query list
+    for index, item in enumerate(query_list):
+      print '%d\t%s' % (index, item)
 
-  ## compress multiple spaces
-  space_regex = re.compile ( '\s+' )
-  query = space_regex.sub( ' ', query)
-  return query
+  def format_query(self, query):
+    '''
+    format the original query
+    '''
+    # remove parentheses
+    parentheses_regex = re.compile( '\(.*\)' )
+    query = parentheses_regex.sub( '', query)
 
-def sanitize(str):
-  '''
-  sanitize the streaming item
-  '''
-  ## replace non word character to space
-  non_word_regex = re.compile( '(\W+|\_+)' )
-  str = non_word_regex.sub( ' ', str)
+    ## replace non word character to space
+    non_word_regex = re.compile( '(\W+|\_+)' )
+    query = non_word_regex.sub( ' ', query)
 
-  ## compress multiple spaces
-  space_regex = re.compile ( '\s+' )
-  str = space_regex.sub( ' ', str)
-  return query
+    ## compress multiple spaces
+    space_regex = re.compile ( '\s+' )
+    query = space_regex.sub( ' ', query)
 
-def process_item(id, data):
-  '''
-  process the streaming item: applying exact match for each of the query
-  entity
-  '''
-  data = sanitize(data)
+    return query.lower()
 
-  global match_list
-  for index, query in enumerate(query_list):
-    p = re.compile( query )
-    if p.match(data):
-      match_list[query][id] = 1
+  def sanitize(self, str):
+    '''
+    sanitize the streaming item
+    '''
+    ## replace non word character to space
+    non_word_regex = re.compile( '(\W+|\_+)' )
+    str = non_word_regex.sub( ' ', str)
 
-def parse_thift_data(thrift_dir):
-  '''
-  Parse the thift data, apply exact matching over the streaming documents
-  '''
-  for fname in os.listdir(thrift_dir):
-    ## ignore other files, e.g. stats.json
-    if not fname.endswith('.xz.gpg'): continue
+    ## compress multiple spaces
+    space_regex = re.compile ( '\s+' )
+    str = space_regex.sub( ' ', str)
 
-    ### reverse the steps from above:
-    ## load the encrypted data
-    fpath = os.path.join(thrift_dir, fname)
-    thrift_data = open(fpath).read()
+    return str.lower()
 
-    assert len(thrift_data) > 0, "failed to load: %s" % fpath
+  def process_stream_item(self, stream_id, stream_data):
+    '''
+    process the streaming item: applying exact match for each of the query
+    entity
+    '''
+    stream_data = sanitize(stream_data)
 
-    ## wrap it in a file obj, thrift transport, and thrift protocol
-    transport = StringIO(thrift_data)
-    transport.seek(0)
-    transport = TTransport.TBufferedTransport(transport)
-    protocol = TBinaryProtocol.TBinaryProtocol(transport)
+    for index self._query_hash:
+      query = self._query_hash[index]
+      p = re.compile( query )
 
-    ## iterate over all thrift items
-    while 1:
-      stream_item = StreamItem()
       try:
-        stream_item.read(protocol)
-      except EOFError:
-        break
+        ## use the query entity as the regex to apply exact match
+        if p.match(stream_data):
+          self._match_list[query][id] = 1
 
-      ## process data
-      process_item(stream_item.doc_id, stream_item.body.cleansed)
-      ## suppress the verbose output
-      #print '%s' % stream_item.doc_id
+          id = self._rdb.llen(RedisDB.ret_item_list)
+          id = id + 1
+          self._rdb.rpush(RedisDB.ret_item_list, id)
 
-    ## close that transport
-    transport.close()
+          ## create a hash record
+          ret_item = {'id' : id}
+          ret_item['query'] = self._org_query_hash[index]
+          ret_item['stream_id'] = stream_id
+          ret_item['stream_data'] = stream_data
+          ret_item['score'] = 1000
+          self._rdf.hmset(id, ret_item)
 
-    # free memory
-    thrift_data = None
+          print '%s : %s : %s' %(query, stream_id, stream_data)
 
-if __name__ == '__main__':
+        except:
+            # Catch any unicode errors while printing to console
+            # and just ignore them to avoid breaking application.
+            print "Exception in ExactMatch.process_stream_item()"
+            print '-'*60
+            traceback.print_exc(file=sys.stdout)
+            print '-'*60
+            pass
+
+  def parse_thift_data(self, thrift_dir):
+    '''
+    Parse the thift data in a given directory, apply exact matching over
+    the streaming documents
+    '''
+    for fname in os.listdir(thrift_dir):
+      ## ignore other files, e.g. stats.json
+      if not fname.endswith('.xz.gpg'): continue
+
+      ### reverse the steps from above:
+      ## load the encrypted data
+      fpath = os.path.join(thrift_dir, fname)
+      thrift_data = open(fpath).read()
+
+      assert len(thrift_data) > 0, "failed to load: %s" % fpath
+
+      ## wrap it in a file obj, thrift transport, and thrift protocol
+      transport = StringIO(thrift_data)
+      transport.seek(0)
+      transport = TTransport.TBufferedTransport(transport)
+      protocol = TBinaryProtocol.TBinaryProtocol(transport)
+
+      ## iterate over all thrift items
+      while 1:
+        stream_item = StreamItem()
+        try:
+          stream_item.read(protocol)
+        except EOFError:
+          break
+
+        ## process data
+        self.process_stream_item(stream_item.doc_id, stream_item.body.cleansed)
+        ## suppress the verbose output
+        #print '%s' % stream_item.doc_id
+
+      ## close that transport
+      transport.close()
+
+      # free memory
+      thrift_data = None
+
+def main():
   import argparse
-  parser = argparse.ArgumentParser(usage='apply exact match')
-  parser.add_argument('query_file')
+  parser = argparse.ArgumentParser(usage=__doc__)
+  parser.add_argument('query')
   parser.add_argument('thrift_dir')
-
   args = parser.parse_args()
 
-  parse_query(args.query_file)
+  match = ExactMatch()
+  match.parse_query(args.query)
+  match.parse_thift_data(args.thrift_dir)
+
+if __name__ == '__main__':
+  try:
+    main()
+  except KeyboardInterrupt:
+    print '\nGoodbye!'
+
