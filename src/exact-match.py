@@ -48,8 +48,8 @@ class ExactMatch():
   '''
   Apply exact matching
   '''
-  _query_hash = None
-  _org_query_hash = None
+  _query_hash = {}
+  _org_query_hash = {}
   _match_list = None
 
   _rdb = redis.Redis(host=RedisDB.host, port=RedisDB.port,
@@ -64,9 +64,9 @@ class ExactMatch():
 
     ## format the query list
     for index, item in enumerate(query_list):
-      self._org_query_hash[index] = item;
+      self._org_query_hash[index] = item
       item = self.format_query(item)
-      self._query_hash[index] = item;
+      self._query_hash[index] = item
 
     ## dump the query list
     for index, item in enumerate(query_list):
@@ -109,9 +109,9 @@ class ExactMatch():
     process the streaming item: applying exact match for each of the query
     entity
     '''
-    stream_data = sanitize(stream_data)
+    stream_data = self.sanitize(stream_data)
 
-    for index self._query_hash:
+    for index in self._query_hash:
       query = self._query_hash[index]
       p = re.compile( query )
 
@@ -132,16 +132,17 @@ class ExactMatch():
           ret_item['score'] = 1000
           self._rdf.hmset(id, ret_item)
 
+          ## verbose output
           print '%s : %s : %s' %(query, stream_id, stream_data)
 
-        except:
-            # Catch any unicode errors while printing to console
-            # and just ignore them to avoid breaking application.
-            print "Exception in ExactMatch.process_stream_item()"
-            print '-'*60
-            traceback.print_exc(file=sys.stdout)
-            print '-'*60
-            pass
+      except:
+        # Catch any unicode errors while printing to console
+        # and just ignore them to avoid breaking application.
+        print "Exception in ExactMatch.process_stream_item()"
+        print '-'*60
+        traceback.print_exc(file=sys.stdout)
+        print '-'*60
+        pass
 
   def parse_thift_data(self, thrift_dir):
     '''
@@ -150,7 +151,11 @@ class ExactMatch():
     '''
     for fname in os.listdir(thrift_dir):
       ## ignore other files, e.g. stats.json
-      if not fname.endswith('.xz.gpg'): continue
+      if fname.endswith('.gpg'): continue
+      if fname.endswith('.xz'): continue
+
+      ## verbose output
+      print 'Process %s' % fname
 
       ### reverse the steps from above:
       ## load the encrypted data
