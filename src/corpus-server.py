@@ -123,8 +123,7 @@ class FileHandler(tornado.web.RequestHandler):
 class DocHandler(tornado.web.RequestHandler):
   def get(self, epoch, id):
     time = datetime.datetime.utcfromtimestamp(float(epoch))
-    date = '%d-%d-%d-%d' %(time.year, time.month, time.day, time.hour)
-    #self.write('dir: ' + date)
+    date = '%d-%.2d-%.2d-%.2d' %(time.year, time.month, time.day, time.hour)
     date_dir = os.path.join(corpus_dir, date)
 
     target_id = '%s-%s' %(epoch, id)
@@ -136,8 +135,10 @@ class DocHandler(tornado.web.RequestHandler):
     doc = Doc()
     doc['title'] = 'Null'
     doc['body'] = 'Null'
-    doc['body'] = 'Null'
+    doc['anchor'] = 'Null'
     doc['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
+    #self.write('searching')
+    #self.flush()
 
     for fname in os.listdir(date_dir):
       ## ignore other files
