@@ -107,7 +107,7 @@ class FileHandler(tornado.web.RequestHandler):
         doc = Doc()
         doc.id = stream_item.stream_id
         doc.epoch = stream_item.stream_time.epoch_ticks
-        doc.time = datetime.datetime.fromtimestamp(doc.epoch).ctime()
+        doc.time = datetime.datetime.utcfromtimestamp(doc.epoch).ctime()
         docs.append(doc)
       except EOFError:
         break
@@ -121,8 +121,61 @@ class FileHandler(tornado.web.RequestHandler):
     self.render("file-index.html", title=file, docs=docs)
 
 class DocHandler(tornado.web.RequestHandler):
-  def get(self, date, file):
-    self.write('Not Implemented')
+  def get(self, epoch, id):
+    time = datetime.datetime.utcfromtimestamp(float(epoch))
+    date = '%d-%d-%d-%d' %(time.year, time.month, time.day, time.hour)
+    #self.write('dir: ' + date)
+    date_dir = os.path.join(corpus_dir, date)
+
+    target_id = '%s-%s' %(epoch, id)
+
+    if not os.path.isdir(date_dir):
+      msg = 'directory %s can not be opened' %date_dir
+      raise tornado.web.HTTPError(404, log_message=msg)
+
+    doc = Doc()
+    doc['title'] = 'Null'
+    doc['body'] = 'Null'
+    doc['body'] = 'Null'
+    doc['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
+
+    for fname in os.listdir(date_dir):
+      ## ignore other files
+      if fname.endswith('.gpg'): continue
+      if fname.endswith('.xz'): continue
+
+      fpath = os.path.join(date_dir, fname)
+      thrift_data = open(fpath).read()
+
+      if not len(thrift_data) > 0:
+        msg = 'failed to load: %s' % fpath
+        raise tornado.web.HTTPError(404, log_message=msg)
+
+      ## wrap it in a file obj, thrift transport, and thrift protocol
+      transport = StringIO(thrift_data)
+      transport.seek(0)
+      transport = TTransport.TBufferedTransport(transport)
+      protocol = TBinaryProtocol.TBinaryProtocol(transport)
+
+      found = False
+
+      ## iterate over all thrift items
+      while 1:
+        stream_item = StreamItem()
+        try:
+          stream_item.read(protocol)
+          if stream_item.stream_id == target_id:
+            found = True
+            doc['title'] = stream_item.title.cleansed
+            doc['body'] = stream_item.body.cleansed
+            doc['anchor'] = stream_item.anchor.cleansed
+            break
+        except EOFError:
+          break
+
+      if found: break
+
+    self.render("doc.html", title=target_id, doc=doc)
 
 class Application(tornado.web.Application):
   def __init__(self):
@@ -130,7 +183,7 @@ class Application(tornado.web.Application):
       (r"/", HomeHandler),
       (r"/date-([^/]+)", DateHandler),
       (r"/date-([^/]+)/file-([^/]+)", FileHandler),
-      (r"/doc/([^/]+)/", DocHandler),
+      (r"/doc/(\d+)-(\w+)", DocHandler),
     ]
 
     settings = dict(

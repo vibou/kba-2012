@@ -4,6 +4,7 @@
 </head>
 
 <body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>{{ len(docs) }} docs in total.</p>
   <ul>
     {% for doc in docs %}
     <li>{{ doc.time }} - <a href="/doc/{{ doc.id}}">{{ escape(doc.id) }}</a></li>

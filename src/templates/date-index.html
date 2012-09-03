@@ -4,6 +4,7 @@
 </head>
 
 <body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>{{ len(files) }} files in total.</p>
   <ul>
     {% for file in files %}
     <li><a href="/date-{{ date }}/file-{{ file.name }}">{{ escape(file.name) }}</a></li>

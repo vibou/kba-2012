@@ -1,0 +1,16 @@
+<html>
+<head>
+  <title>{{ title }}</title>
+</head>
+
+<body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>Title: {{ doc.title }}</p>
+  <br/>
+  <p>Time: {{ doc.time }}
+  <br/>
+  <p>Anchor: {{ doc.anchor }}
+  <br/>
+  <p>Body: </p>
+  <p style="width: 800px">{{ escape(doc.body) }}</p>
+</body>
+</html>
