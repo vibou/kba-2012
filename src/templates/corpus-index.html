@@ -5,8 +5,8 @@
 
 <body>
   <ul>
-    {% for item in items %}
-    <li>{{ escape(item) }}</li>
+    {% for dir in dirs %}
+    <li><a href="/date/{{ dir.name }}">{{ escape(dir.name) }}</a></li>
     {% end %}
   </ul>
 </body>

@@ -1,0 +1,13 @@
+<html>
+<head>
+  <title>{{ title }}</title>
+</head>
+
+<body>
+  <ul>
+    {% for file in files %}
+    <li><a href="/date-{{ date }}/file-{{ file.name }}">{{ escape(file.name) }}</a></li>
+    {% end %}
+  </ul>
+</body>
+</html>
