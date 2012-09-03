@@ -3,10 +3,10 @@
   <title>{{ title }}</title>
 </head>
 
-<body>
+<body style="font-family:Monaco, monospace; font-size:80%;">
   <ul>
     {% for dir in dirs %}
-    <li><a href="/date/{{ dir.name }}">{{ escape(dir.name) }}</a></li>
+    <li><a href="/date-{{ dir.name }}">{{ escape(dir.name) }}</a></li>
     {% end %}
   </ul>
 </body>

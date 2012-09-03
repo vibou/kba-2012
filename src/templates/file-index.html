@@ -5,8 +5,8 @@
 
 <body style="font-family:Monaco, monospace; font-size:80%;">
   <ul>
-    {% for file in files %}
-    <li><a href="/date-{{ date }}/file-{{ file.name }}">{{ escape(file.name) }}</a></li>
+    {% for doc in docs %}
+    <li>{{ doc.time }} - <a href="/doc/{{ doc.id}}">{{ escape(doc.id) }}</a></li>
     {% end %}
   </ul>
 </body>

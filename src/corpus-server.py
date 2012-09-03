@@ -2,13 +2,23 @@
 
 import os
 import re
+import time
+import datetime
+
 import tornado.ioloop
 import tornado.web
 import tornado.options
 import tornado.httpserver
 
+import redis
 from config import RedisDB
 from tornado.options import define, options
+
+from thrift import Thrift
+from thrift.transport import TTransport
+from thrift.protocol import TBinaryProtocol
+from cStringIO import StringIO
+from kba_thrift.ttypes import StreamItem, StreamTime, ContentItem
 
 define("port", default=8888, help="run on the given port", type=int)
 
@@ -25,9 +35,13 @@ class Dir(dict):
       raise AttributeError(name)
 
 class File(dict):
-  """
-  A dict that allows for object-like property access syntax.
-  """
+  def __getattr__(self, name):
+    try:
+      return self[name]
+    except KeyError:
+      raise AttributeError(name)
+
+class Doc(dict):
   def __getattr__(self, name):
     try:
       return self[name]
@@ -48,32 +62,79 @@ class HomeHandler(tornado.web.RequestHandler):
     self.render("corpus-index.html", title="KBA", dirs=dirs)
 
 class DateHandler(tornado.web.RequestHandler):
-  def get(self, slug):
-    date_dir = os.path.join(corpus_dir, slug)
+  def get(self, date):
+    date_dir = os.path.join(corpus_dir, date)
 
     if not os.path.isdir(date_dir):
-      raise tornado.web.HTTPError(404)
+      msg = 'directory %s can not be opened' %date_dir
+      raise tornado.web.HTTPError(404, log_message=msg)
 
     files = []
     for fname in os.listdir(date_dir):
       ## ignore other files
-      if not fname.endswith('.gpg'): continue
-      if not fname.endswith('.xz'): continue
+      if fname.endswith('.gpg'): continue
+      if fname.endswith('.xz'): continue
 
-      file = os.path.join(date_dir, fname)
+      file = File()
+      file['name'] = fname
+      files.append(file)
 
-    self.render("date-index.html", title=slug, files=files, date=date)
+    self.render("date-index.html", title=date, files=files, date=date)
+
+class FileHandler(tornado.web.RequestHandler):
+  def get(self, date, file):
+
+    ## load the thrift data
+    fpath = os.path.join(corpus_dir, date, file)
+    thrift_data = open(fpath).read()
+
+    if not len(thrift_data) > 0:
+      msg = 'failed to load: %s' % fpath
+      raise tornado.web.HTTPError(404, log_message=msg)
+
+    ## wrap it in a file obj, thrift transport, and thrift protocol
+    transport = StringIO(thrift_data)
+    transport.seek(0)
+    transport = TTransport.TBufferedTransport(transport)
+    protocol = TBinaryProtocol.TBinaryProtocol(transport)
+
+    docs = []
+    ## iterate over all thrift items
+    while 1:
+      stream_item = StreamItem()
+      try:
+        stream_item.read(protocol)
+        doc = Doc()
+        doc.id = stream_item.stream_id
+        doc.epoch = stream_item.stream_time.epoch_ticks
+        doc.time = datetime.datetime.fromtimestamp(doc.epoch).ctime()
+        docs.append(doc)
+      except EOFError:
+        break
+
+    ## close that transport
+    transport.close()
+
+    # free memory
+    thrift_data = None
+
+    self.render("file-index.html", title=file, docs=docs)
+
+class DocHandler(tornado.web.RequestHandler):
+  def get(self, date, file):
+    self.write('Not Implemented')
 
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
       (r"/", HomeHandler),
-      (r"/date-([^/]+)/", DateHandler),
-      (r"/date-([^/]+)//file-([^/]+)/", FileHandler),
+      (r"/date-([^/]+)", DateHandler),
+      (r"/date-([^/]+)/file-([^/]+)", FileHandler),
+      (r"/doc/([^/]+)/", DocHandler),
     ]
 
     settings = dict(
-      app_title = u"HoTweets",
+      app_title = u"KBA Corpus Browser",
       template_path = os.path.join(os.path.dirname(__file__), "templates"),
     )
 
