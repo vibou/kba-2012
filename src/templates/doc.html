@@ -4,6 +4,8 @@
 </head>
 
 <body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>stream_id: {{ doc.id }}</p>
+  <br/>
   <p>Title: {{ doc.title }}</p>
   <br/>
   <p>Time: {{ doc.time }}
@@ -11,6 +13,6 @@
   <p>Anchor: {{ doc.anchor }}
   <br/>
   <p>Body: </p>
-  <p style="width: 800px">{{ escape(doc.body) }}</p>
+  <p style="width: 600px">{{ escape(doc.body) }}</p>
 </body>
 </html>

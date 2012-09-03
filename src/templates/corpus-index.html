@@ -6,7 +6,7 @@
 <body style="font-family:Monaco, monospace; font-size:80%;">
   <p>{{ len(dirs) }} dirs in total.</p>
   <ul>
-    {% for dir in dirs %}
+    {% for dir in sorted(dirs) %}
     <li><a href="/date-{{ dir.name }}">{{ escape(dir.name) }}</a></li>
     {% end %}
   </ul>

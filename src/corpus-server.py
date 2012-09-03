@@ -51,6 +51,11 @@ class Doc(dict):
 class HomeHandler(tornado.web.RequestHandler):
   def get(self):
 
+    self.render("index.html", title="KBA")
+
+class BrowseHandler(tornado.web.RequestHandler):
+  def get(self):
+
     dirs = []
     for fname in os.listdir(corpus_dir):
       fpath = os.path.join(corpus_dir, fname)
@@ -61,13 +66,16 @@ class HomeHandler(tornado.web.RequestHandler):
 
     self.render("corpus-index.html", title="KBA", dirs=dirs)
 
+
 class DateHandler(tornado.web.RequestHandler):
   def get(self, date):
     date_dir = os.path.join(corpus_dir, date)
 
     if not os.path.isdir(date_dir):
       msg = 'directory %s can not be opened' %date_dir
-      raise tornado.web.HTTPError(404, log_message=msg)
+      #raise tornado.web.HTTPError(404, log_message=msg)
+      self.render("error.html", msg=msg)
+      return
 
     files = []
     for fname in os.listdir(date_dir):
@@ -90,7 +98,9 @@ class FileHandler(tornado.web.RequestHandler):
 
     if not len(thrift_data) > 0:
       msg = 'failed to load: %s' % fpath
-      raise tornado.web.HTTPError(404, log_message=msg)
+      #raise tornado.web.HTTPError(404, log_message=msg)
+      self.render("error.html", msg=msg)
+      return
 
     ## wrap it in a file obj, thrift transport, and thrift protocol
     transport = StringIO(thrift_data)
@@ -118,9 +128,58 @@ class FileHandler(tornado.web.RequestHandler):
     # free memory
     thrift_data = None
 
-    self.render("file-index.html", title=file, docs=docs)
+    self.render("file-index.html", title=file, date=date, file=file, docs=docs)
 
 class DocHandler(tornado.web.RequestHandler):
+  def get(self, date, file, epoch, doc_id):
+    date_dir = os.path.join(corpus_dir, date)
+    target_id = '%s-%s' %(epoch, doc_id)
+
+    if not os.path.isdir(date_dir):
+      msg = 'directory %s can not be opened' %date_dir
+      #raise tornado.web.HTTPError(404, log_message=msg)
+      self.render("error.html", msg=msg)
+      return
+
+    doc = Doc()
+    doc['title'] = 'Null'
+    doc['body'] = 'Null'
+    doc['anchor'] = 'Null'
+    doc['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
+    doc['id'] = target_id
+
+    fpath = os.path.join(date_dir, file)
+    thrift_data = open(fpath).read()
+
+    if not len(thrift_data) > 0:
+      msg = 'failed to load: %s' % fpath
+      #raise tornado.web.HTTPError(404, log_message=msg)
+      self.render("error.html", msg=msg)
+      return
+
+    ## wrap it in a file obj, thrift transport, and thrift protocol
+    transport = StringIO(thrift_data)
+    transport.seek(0)
+    transport = TTransport.TBufferedTransport(transport)
+    protocol = TBinaryProtocol.TBinaryProtocol(transport)
+
+    ## iterate over all thrift items
+    while 1:
+      stream_item = StreamItem()
+      try:
+        stream_item.read(protocol)
+        if stream_item.stream_id == target_id:
+          found = True
+          doc['title'] = stream_item.title.cleansed
+          doc['body'] = stream_item.body.cleansed
+          doc['anchor'] = stream_item.anchor.cleansed
+          break
+      except EOFError:
+        break
+
+    self.render("doc.html", title=doc_id, doc=doc)
+
+class SearchHandler(tornado.web.RequestHandler):
   def get(self, epoch, id):
     time = datetime.datetime.utcfromtimestamp(float(epoch))
     date = '%d-%.2d-%.2d-%.2d' %(time.year, time.month, time.day, time.hour)
@@ -130,13 +189,17 @@ class DocHandler(tornado.web.RequestHandler):
 
     if not os.path.isdir(date_dir):
       msg = 'directory %s can not be opened' %date_dir
-      raise tornado.web.HTTPError(404, log_message=msg)
+      #raise tornado.web.HTTPError(404, log_message=msg)
+      self.set_status(404)
+      self.render("error.html", msg=msg)
+      return
 
     doc = Doc()
     doc['title'] = 'Null'
     doc['body'] = 'Null'
     doc['anchor'] = 'Null'
     doc['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
+    doc['id'] = target_id
     #self.write('searching')
     #self.flush()
 
@@ -150,7 +213,9 @@ class DocHandler(tornado.web.RequestHandler):
 
       if not len(thrift_data) > 0:
         msg = 'failed to load: %s' % fpath
-        raise tornado.web.HTTPError(404, log_message=msg)
+        #raise tornado.web.HTTPError(404, log_message=msg)
+        self.render("error.html", msg=msg)
+        return
 
       ## wrap it in a file obj, thrift transport, and thrift protocol
       transport = StringIO(thrift_data)
@@ -178,13 +243,21 @@ class DocHandler(tornado.web.RequestHandler):
 
     self.render("doc.html", title=target_id, doc=doc)
 
+  def post(self):
+    id = self.get_argument('id')
+    url = '/doc/%s' % id
+    self.redirect(url, permanent=True)
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
       (r"/", HomeHandler),
+      (r"/browse", BrowseHandler),
       (r"/date-([^/]+)", DateHandler),
       (r"/date-([^/]+)/file-([^/]+)", FileHandler),
-      (r"/doc/(\d+)-(\w+)", DocHandler),
+      (r"/date-([^/]+)/file-([^/]+)/doc-(\d+)-(\w+)", DocHandler),
+      (r"/search", SearchHandler),
+      (r"/doc/(\d+)-(\w+)", SearchHandler),
     ]
 
     settings = dict(
