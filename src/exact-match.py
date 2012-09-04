@@ -50,7 +50,6 @@ class ExactMatch():
   '''
   _query_hash = {}
   _org_query_hash = {}
-  _match_list = None
 
   _rdb = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.exact_match_db)
@@ -104,7 +103,7 @@ class ExactMatch():
 
     return str.lower()
 
-  def process_stream_item(self, stream_id, stream_data):
+  def process_stream_item(self, fname, stream_id, stream_data):
     '''
     process the streaming item: applying exact match for each of the query
     entity
@@ -113,13 +112,9 @@ class ExactMatch():
 
     for index in self._query_hash:
       query = self._query_hash[index]
-      p = re.compile( query )
-
       try:
         ## use the query entity as the regex to apply exact match
-        if p.match(stream_data):
-          self._match_list[query][id] = 1
-
+        if re.search(query, stream_data, re.I | re.M):
           id = self._rdb.llen(RedisDB.ret_item_list)
           id = id + 1
           self._rdb.rpush(RedisDB.ret_item_list, id)
@@ -127,13 +122,14 @@ class ExactMatch():
           ## create a hash record
           ret_item = {'id' : id}
           ret_item['query'] = self._org_query_hash[index]
+          ret_item['file'] = fname
           ret_item['stream_id'] = stream_id
           ret_item['stream_data'] = stream_data
           ret_item['score'] = 1000
-          self._rdf.hmset(id, ret_item)
+          self._rdb.hmset(id, ret_item)
 
           ## verbose output
-          print '%s : %s : %s' %(query, stream_id, stream_data)
+          print 'Match: %d - %s - %s' %(id, query, stream_id)
 
       except:
         # Catch any unicode errors while printing to console
@@ -179,7 +175,7 @@ class ExactMatch():
           break
 
         ## process data
-        self.process_stream_item(stream_item.doc_id, stream_item.body.cleansed)
+        self.process_stream_item(fname, stream_item.stream_id, stream_item.body.cleansed)
         ## suppress the verbose output
         #print '%s' % stream_item.doc_id
 
