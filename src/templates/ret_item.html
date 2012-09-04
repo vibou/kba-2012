@@ -1,0 +1,16 @@
+<html>
+<head>
+  <title>{{ title }}</title>
+</head>
+
+<body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>stream_id: {{ ret_item.id }}</p>
+  <br/>
+  <p>Query: {{ ret_item.query }}</p>
+  <br/>
+  <p>Score: {{ ret_item.score }}
+  <br/>
+  <p>Body: </p>
+  <p style="width: 600px">{{ escape(ret_item.stream_data) }}</p>
+</body>
+</html>

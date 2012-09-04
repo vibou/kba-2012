@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+"""
+Provide a web interface to browser the corpus
+"""
+
 import os
 import re
 import time
