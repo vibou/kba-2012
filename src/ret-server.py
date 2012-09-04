@@ -93,7 +93,7 @@ class RetHandler(BaseHandler):
     ret_item['score'] = the_ret_item[4]
     ret_item['stream_data'] = the_ret_item[5]
 
-    self.render("ret_item.html", title='ret_item', ret_item=ret_item)
+    self.render("ret-item.html", title='ret_item', ret_item=ret_item)
 
 class EvalHandler(BaseHandler):
   def get(self):
@@ -103,11 +103,15 @@ class EvalHandler(BaseHandler):
       self.render("error.html", msg=msg)
       return
 
-    ret_item_list = self._ret_db.lrange(RedisDB.ret_item_list, 0, num)
+    ret_item_list = self._eval_db.lrange(RedisDB.ret_item_list, 0, num)
+    ## remove duplicates in the list
+    ## thanks to:
+    ## http://docs.python.org/faq/programming.html#how-do-you-remove-duplicates-from-a-list
+    ret_item_list = list(set(ret_item_list))
     ret_items = []
     for ret_id in ret_item_list:
-      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score']
-      the_ret_item = self._ret_db.hmget(ret_id, ret_item_keys)
+      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score', 'judge1','judge2']
+      the_ret_item = self._eval_db.hmget(ret_id, ret_item_keys)
 
       ret_item = DictItem()
       ret_item['id'] = the_ret_item[0]
@@ -115,9 +119,34 @@ class EvalHandler(BaseHandler):
       ret_item['file'] = the_ret_item[2]
       ret_item['stream_id'] = the_ret_item[3]
       ret_item['score'] = the_ret_item[4]
+      ret_item['judge1'] = the_ret_item[5]
+      ret_item['judge2'] = the_ret_item[6]
       ret_items.append(ret_item)
 
     self.render("eval-index.html", title="KBA", ret_items=ret_items)
+
+class EvalItemHandler(BaseHandler):
+  def get(self, ret_id):
+    ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score',
+        'stream_data', 'judge1', 'judge2']
+    the_ret_item = self._eval_db.hmget(ret_id, ret_item_keys)
+
+    if not the_ret_item[5]:
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item = DictItem()
+    ret_item['id'] = the_ret_item[0]
+    ret_item['query'] = the_ret_item[1]
+    ret_item['file'] = the_ret_item[2]
+    ret_item['stream_id'] = the_ret_item[3]
+    ret_item['score'] = the_ret_item[4]
+    ret_item['stream_data'] = the_ret_item[5]
+    ret_item['judge1'] = the_ret_item[6]
+    ret_item['judge2'] = the_ret_item[7]
+
+    self.render("eval-item.html", title='ret_item', ret_item=ret_item)
 
 class Application(tornado.web.Application):
   def __init__(self):
@@ -126,6 +155,7 @@ class Application(tornado.web.Application):
       (r"/browse", BrowseHandler),
       (r"/eval", EvalHandler),
       (r"/ret/(\d+)", RetHandler),
+      (r"/eval/(\d+)", EvalItemHandler),
     ]
 
     settings = dict(

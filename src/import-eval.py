@@ -1,6 +1,8 @@
 #!/usr/bin/python
 '''
 import evaluation result to DB
+
+exact-match.py <eval> <corpus_dir>
 '''
 
 import re
@@ -99,7 +101,6 @@ class ImportEval():
       ret_item['judge1'] = item['judge1']
       ret_item['judge2'] = item['judge2']
       self._eval_db.hmset(id, ret_item)
-      self._eval_db.rpush(RedisDB.ret_item_list, id)
     except:
       # Catch any unicode errors while printing to console
       # and just ignore them to avoid breaking application.
@@ -115,9 +116,9 @@ class ImportEval():
     '''
     for item in sorted(self._item_list, key=lambda item:item['id']):
       ## skip the existing items
-      ret_item_keys = ['id']
-      if self._eval_db.hexists(item['id'], ret_item_keys):
+      if self._eval_db.hexists(item['id'], 'id'):
         print 'Skipping %d' %item['id']
+        continue
 
       target_id = item['stream_id']
       list = target_id.split('-')
@@ -129,6 +130,7 @@ class ImportEval():
 
       if not os.path.isdir(date_dir):
         print 'directory %s can no be opened' %date_dir
+        continue
 
       found = False
       for fname in os.listdir(date_dir):
@@ -141,7 +143,9 @@ class ImportEval():
         fpath = os.path.join(date_dir, fname)
         thrift_data = open(fpath).read()
 
-        assert len(thrift_data) > 0, "failed to load: %s" % fpath
+        if not len(thrift_data) > 0:
+          print "failed to load: %s" % fpath
+          continue
 
         ## wrap it in a file obj, thrift transport, and thrift protocol
         transport = StringIO(thrift_data)
@@ -173,17 +177,18 @@ class ImportEval():
           break
 
       if not found:
-        print 'Item %d can not be found in any file' %item['id']
+        print 'Item %d (%s) can not be found in any file' %(item['id'],
+            item['stream_id'])
 
 def main():
   import argparse
   parser = argparse.ArgumentParser(usage=__doc__)
-  parser.add_argument('query')
+  parser.add_argument('eval')
   parser.add_argument('corpus_dir')
   args = parser.parse_args()
 
   object = ImportEval()
-  object.parse_eval(args.query)
+  object.parse_eval(args.eval)
   object.parse_thift_data(args.corpus_dir)
 
 if __name__ == '__main__':

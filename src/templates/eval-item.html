@@ -4,11 +4,15 @@
 </head>
 
 <body style="font-family:Monaco, monospace; font-size:80%;">
-  <p>stream_id: {{ ret_item.id }}</p>
+  <p>stream_id: {{ ret_item.stream_id }}</p>
   <br/>
   <p>Query: {{ ret_item.query }}</p>
   <br/>
   <p>Score: {{ ret_item.score }}
+  <br/>
+  <p>Judge1: {{ ret_item.judge1 }}
+  <br/>
+  <p>Judge2: {{ ret_item.judge2 }}
   <br/>
   <p>Body: </p>
   <p style="width: 600px">{{ escape(ret_item.stream_data) }}</p>
