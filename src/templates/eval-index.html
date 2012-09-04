@@ -4,7 +4,7 @@
 </head>
 
 <body style="font-family:Monaco, monospace; font-size:80%;">
-  <p>View <a href="/eval">Evaluation Judgment</a></p>
+  <p>View <a href="/browse">Retrieval Results</a></p>
   <p>{{ len(ret_items) }} ret records in total.</p>
   <ul>
     {% for ret_item in sorted(ret_items, key=lambda ret_item:ret_item.query) %}

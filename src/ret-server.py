@@ -42,6 +42,9 @@ class BaseHandler(tornado.web.RequestHandler):
   @property
   def _ret_db(self):
     return self.application._ret_db
+  @property
+  def _eval_db(self):
+    return self.application._eval_db
 
 class HomeHandler(BaseHandler):
   def get(self):
@@ -92,11 +95,36 @@ class RetHandler(BaseHandler):
 
     self.render("ret_item.html", title='ret_item', ret_item=ret_item)
 
+class EvalHandler(BaseHandler):
+  def get(self):
+    num = self._eval_db.llen(RedisDB.ret_item_list)
+    if 0 == num:
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item_list = self._ret_db.lrange(RedisDB.ret_item_list, 0, num)
+    ret_items = []
+    for ret_id in ret_item_list:
+      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score']
+      the_ret_item = self._ret_db.hmget(ret_id, ret_item_keys)
+
+      ret_item = DictItem()
+      ret_item['id'] = the_ret_item[0]
+      ret_item['query'] = the_ret_item[1]
+      ret_item['file'] = the_ret_item[2]
+      ret_item['stream_id'] = the_ret_item[3]
+      ret_item['score'] = the_ret_item[4]
+      ret_items.append(ret_item)
+
+    self.render("eval-index.html", title="KBA", ret_items=ret_items)
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
       (r"/", HomeHandler),
       (r"/browse", BrowseHandler),
+      (r"/eval", EvalHandler),
       (r"/ret/(\d+)", RetHandler),
     ]
 
@@ -110,6 +138,8 @@ class Application(tornado.web.Application):
     # global database connections for all handles
     self._ret_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.exact_match_db)
+    self._eval_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+        db=RedisDB.eval_db)
 
 def main():
   tornado.options.parse_command_line()

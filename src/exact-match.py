@@ -130,11 +130,10 @@ class ExactMatch():
 
           ## verbose output
           print 'Match: %d - %s - %s' %(id, query, stream_id)
-
       except:
         # Catch any unicode errors while printing to console
         # and just ignore them to avoid breaking application.
-        print "Exception in ExactMatch.process_stream_item()"
+        print "Exception in process_stream_item()"
         print '-'*60
         traceback.print_exc(file=sys.stdout)
         print '-'*60

@@ -149,6 +149,8 @@ class DocHandler(tornado.web.RequestHandler):
     doc['title'] = 'Null'
     doc['body'] = 'Null'
     doc['anchor'] = 'Null'
+    doc['date'] = date
+    doc['file'] = file
     doc['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
     doc['id'] = target_id
 
@@ -202,6 +204,8 @@ class SearchHandler(tornado.web.RequestHandler):
     doc['title'] = 'Null'
     doc['body'] = 'Null'
     doc['anchor'] = 'Null'
+    doc['date'] = date
+    doc['file'] = 'Null'
     doc['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
     doc['id'] = target_id
     #self.write('searching')
@@ -239,6 +243,7 @@ class SearchHandler(tornado.web.RequestHandler):
             doc['title'] = stream_item.title.cleansed
             doc['body'] = stream_item.body.cleansed
             doc['anchor'] = stream_item.anchor.cleansed
+            doc['file'] = fname
             break
         except EOFError:
           break
