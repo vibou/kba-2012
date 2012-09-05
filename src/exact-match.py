@@ -108,13 +108,13 @@ class ExactMatch():
     process the streaming item: applying exact match for each of the query
     entity
     '''
-    stream_data = self.sanitize(stream_data)
+    new_stream_data = self.sanitize(stream_data)
 
     for index in self._query_hash:
       query = self._query_hash[index]
       try:
         ## use the query entity as the regex to apply exact match
-        if re.search(query, stream_data, re.I | re.M):
+        if re.search(query, new_stream_data, re.I | re.M):
           id = self._rdb.llen(RedisDB.ret_item_list)
           id = id + 1
           self._rdb.rpush(RedisDB.ret_item_list, id)
