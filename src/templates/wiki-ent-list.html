@@ -1,0 +1,19 @@
+<html>
+<head>
+  <title>{{ title }}</title>
+</head>
+
+<body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>View <a href="/eval">Evaluation Judgments</a></p>
+  <p>{{ len(ent_items) }} records in total.</p>
+  <ul>
+    {% for ent_item in ent_items %}
+    <li>
+      {{ ent_item.query }}
+      <a href="{{ ent_item.url }}">{{ ent_item.ent }}</a>
+      ({{ ent_item.id }})
+    </li>
+    {% end %}
+  </ul>
+</body>
+</html>
