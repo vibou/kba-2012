@@ -11,6 +11,8 @@ class RedisDB(object):
     # specifications of which DB to use for different purposes
     eval_db = 0
     exact_match_db = 1
+    wiki_match_db = 2
+    wiki_ent_list_db = 3
 
     # specifications of hash tables
     # the to-be-processed tweet list
@@ -19,6 +21,7 @@ class RedisDB(object):
 
     # specifications related to bootstraping
     ret_item_list = 'ret_item_list'
+    wiki_ent_list = 'wiki_ent_list'
 
     # mutex
     async_mutex = 'async_mutex'
