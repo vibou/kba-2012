@@ -49,8 +49,6 @@ sub load_qrels(){
     my ($query, $did, $score, $judge1, $judge2) = split;
     $qrel{$query}{$did} = 1;
   }
-
-
   close QRELS;
 }
 
