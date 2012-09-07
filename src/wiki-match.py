@@ -46,6 +46,9 @@ from kba_thrift.ttypes import StreamItem, StreamTime, ContentItem
 import redis
 from config import RedisDB
 
+QUERY_ENT_MATCH_SCORE = 100
+WIKI_ENT_MATCH_SCORE = 1
+
 def log(m, newline='\n'):
   sys.stderr.write(m + newline)
   sys.stderr.flush()
@@ -79,8 +82,8 @@ class WikiMatch():
       self._query_hash[index] = item
 
     ## dump the query list
-    for index, item in enumerate(query_list):
-      print '%d\t%s' % (index, item)
+    #for index, item in enumerate(query_list):
+      #print '%d\t%s' % (index, item)
 
   def format_query(self, query):
     '''
@@ -131,7 +134,30 @@ class WikiMatch():
       db_item = self._wiki_ent_list_db.hmget(ent_id, keys)
       query = db_item[1]
       ent = db_item[2]
+      ent = self.format_query(ent)
       self._wiki_ent_hash[query].append(ent)
+
+  def calc_score(self, qid, doc):
+    '''
+    Calculate the score of a document w.r.t. the given query
+    '''
+    query = self._query_hash[qid]
+    org_query = self._org_query_hash[qid]
+
+    score = 0
+    ## first, calculate it with the query entity
+    ## use the query entity as the regex to apply exact match
+    if re.search(query, doc, re.I | re.M):
+      score = score + QUERY_ENT_MATCH_SCORE
+
+    if org_query in self._wiki_ent_hash:
+      for ent in self._wiki_ent_hash[org_query]:
+        if re.search(ent, doc, re.I | re.M):
+          score = score + WIKI_ENT_MATCH_SCORE
+    else:
+      print 'I can not find the query [%s] in self._wiki_ent_hash' %org_query
+
+    return score
 
   def process_stream_item(self, fname, stream_id, stream_data):
     '''
@@ -143,23 +169,24 @@ class WikiMatch():
     for index in self._query_hash:
       query = self._query_hash[index]
       try:
-        ## use the query entity as the regex to apply exact match
-        if re.search(query, new_stream_data, re.I | re.M):
-          id = self._wiki_match_db.llen(RedisDB.ret_item_list)
-          id = id + 1
-          self._wiki_match_db.rpush(RedisDB.ret_item_list, id)
+        score = self.calc_score(index, new_stream_data)
+        if QUERY_ENT_MATCH_SCORE > score: continue
 
-          ## create a hash record
-          ret_item = {'id' : id}
-          ret_item['query'] = self._org_query_hash[index]
-          ret_item['file'] = fname
-          ret_item['stream_id'] = stream_id
-          ret_item['stream_data'] = stream_data
-          ret_item['score'] = 1000
-          self._wiki_match_db.hmset(id, ret_item)
+        id = self._wiki_match_db.llen(RedisDB.ret_item_list)
+        id = id + 1
+        #self._wiki_match_db.rpush(RedisDB.ret_item_list, id)
 
-          ## verbose output
-          print 'Match: %d - %s - %s' %(id, query, stream_id)
+        ## create a hash record
+        ret_item = {'id' : id}
+        ret_item['query'] = self._org_query_hash[index]
+        ret_item['file'] = fname
+        ret_item['stream_id'] = stream_id
+        ret_item['stream_data'] = stream_data
+        ret_item['score'] = score
+        #self._wiki_match_db.hmset(id, ret_item)
+
+        ## verbose output
+        print 'Match: %d - %s - %s -%d' %(id, query, stream_id, score)
       except:
         # Catch any unicode errors while printing to console
         # and just ignore them to avoid breaking application.
