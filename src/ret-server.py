@@ -49,12 +49,16 @@ class BaseHandler(tornado.web.RequestHandler):
   def _wiki_ent_list_db(self):
     return self.application._wiki_ent_list_db
 
+  @property
+  def _test_exact_match_db(self):
+    return self.application._test_exact_match_db
+
 class HomeHandler(BaseHandler):
   def get(self):
-    url = '/browse'
+    url = '/train'
     self.redirect(url)
 
-class BrowseHandler(BaseHandler):
+class TrainIndexHandler(BaseHandler):
   def get(self):
     num = self._exact_match_db.llen(RedisDB.ret_item_list)
     if 0 == num:
@@ -76,9 +80,33 @@ class BrowseHandler(BaseHandler):
       ret_item['score'] = the_ret_item[4]
       ret_items.append(ret_item)
 
-    self.render("ret-index.html", title='KBA', ret_items=ret_items)
+    self.render("train-ret-index.html", title='KBA Training Results', ret_items=ret_items)
 
-class RetHandler(BaseHandler):
+class TestIndexHandler(BaseHandler):
+  def get(self):
+    num = self._test_exact_match_db.llen(RedisDB.ret_item_list)
+    if 0 == num:
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item_list = self._test_exact_match_db.lrange(RedisDB.ret_item_list, 0, num)
+    ret_items = []
+    for ret_id in ret_item_list:
+      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score']
+      the_ret_item = self._test_exact_match_db.hmget(ret_id, ret_item_keys)
+
+      ret_item = DictItem()
+      ret_item['id'] = the_ret_item[0]
+      ret_item['query'] = the_ret_item[1]
+      ret_item['file'] = the_ret_item[2]
+      ret_item['stream_id'] = the_ret_item[3]
+      ret_item['score'] = the_ret_item[4]
+      ret_items.append(ret_item)
+
+    self.render("test-ret-index.html", title='KBA Testing Results', ret_items=ret_items)
+
+class TrainRetHandler(BaseHandler):
   def get(self, ret_id):
     ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score', 'stream_data']
     the_ret_item = self._exact_match_db.hmget(ret_id, ret_item_keys)
@@ -95,6 +123,34 @@ class RetHandler(BaseHandler):
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['score'] = the_ret_item[4]
     ret_item['stream_data'] = the_ret_item[5]
+
+    list = the_ret_item[3].split('-')
+    epoch = list[0]
+    ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
+
+    self.render("ret-item.html", title='ret_item', ret_item=ret_item)
+
+class TestRetHandler(BaseHandler):
+  def get(self, ret_id):
+    ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score', 'stream_data']
+    the_ret_item = self._test_exact_match_db.hmget(ret_id, ret_item_keys)
+
+    if not the_ret_item[5]:
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item = DictItem()
+    ret_item['id'] = the_ret_item[0]
+    ret_item['query'] = the_ret_item[1]
+    ret_item['file'] = the_ret_item[2]
+    ret_item['stream_id'] = the_ret_item[3]
+    ret_item['score'] = the_ret_item[4]
+    ret_item['stream_data'] = the_ret_item[5]
+
+    list = the_ret_item[3].split('-')
+    epoch = list[0]
+    ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("ret-item.html", title='ret_item', ret_item=ret_item)
 
@@ -182,9 +238,11 @@ class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
       (r"/", HomeHandler),
-      (r"/browse", BrowseHandler),
+      (r"/train", TrainIndexHandler),
+      (r"/test", TestIndexHandler),
       (r"/eval", EvalHandler),
-      (r"/ret/(\d+)", RetHandler),
+      (r"/train/ret/(\d+)", TrainRetHandler),
+      (r"/test/ret/(\d+)", TestRetHandler),
       (r"/eval/(\d+)", EvalItemHandler),
       (r"/wiki-ent-list", WikiEntListHandler),
     ]
@@ -203,6 +261,9 @@ class Application(tornado.web.Application):
         db=RedisDB.eval_db)
     self._wiki_ent_list_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.wiki_ent_list_db)
+
+    self._test_exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+        db=RedisDB.test_exact_match_db)
 
 def main():
   tornado.options.parse_command_line()

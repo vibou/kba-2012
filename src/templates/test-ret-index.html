@@ -10,7 +10,7 @@
     {% for ret_item in sorted(ret_items, key=lambda ret_item:ret_item.query) %}
     <li>
       {{ ret_item.query }}
-      <a href="/ret/{{ ret_item.id }}">{{ ret_item.stream_id }}</a>
+      <a href="/test/ret/{{ ret_item.id }}">{{ ret_item.stream_id }}</a>
       {{ ret_item.score }}
     </li>
     {% end %}

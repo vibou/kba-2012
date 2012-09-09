@@ -176,7 +176,7 @@ class WikiMatch():
       #self._wiki_match_db.hmset(id, ret_item)
 
       ## verbose output
-      print 'Match: %d - %s - %s -%d' %(id, query, stream_id, score)
+      print 'Match: %d - %s - %s -%d ' %(id, query, stream_id, score)
     except:
       # Catch any unicode errors while printing to console
       # and just ignore them to avoid breaking application.

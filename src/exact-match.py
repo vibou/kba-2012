@@ -51,8 +51,10 @@ class ExactMatch():
   _query_hash = {}
   _org_query_hash = {}
 
-  _rdb = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.exact_match_db)
+  #_exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+  #    db=RedisDB.exact_match_db)
+  _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.test_exact_match_db)
 
   def parse_query(self, query_file):
     '''
@@ -115,9 +117,9 @@ class ExactMatch():
       try:
         ## use the query entity as the regex to apply exact match
         if re.search(query, new_stream_data, re.I | re.M):
-          id = self._rdb.llen(RedisDB.ret_item_list)
+          id = self._exact_match_db.llen(RedisDB.ret_item_list)
           id = id + 1
-          self._rdb.rpush(RedisDB.ret_item_list, id)
+          self._exact_match_db.rpush(RedisDB.ret_item_list, id)
 
           ## create a hash record
           ret_item = {'id' : id}
@@ -126,7 +128,7 @@ class ExactMatch():
           ret_item['stream_id'] = stream_id
           ret_item['stream_data'] = stream_data
           ret_item['score'] = 1000
-          self._rdb.hmset(id, ret_item)
+          self._exact_match_db.hmset(id, ret_item)
 
           ## verbose output
           print 'Match: %d - %s - %s' %(id, query, stream_id)
