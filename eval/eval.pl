@@ -86,6 +86,7 @@ sub score {
 }
 
 sub means() {
+  my $sum_rel_ret = 0;
   for my $query(sort {$a cmp $b} keys %eval){
     my $num_ret = $eval{$query}{num_ret};
     my $num_rel = $eval{$query}{num_rel};
@@ -97,7 +98,8 @@ sub means() {
     if(0 == $num_rel){
       $num_rel = 1;
     }
-
+    
+    $sum_rel_ret += $rel_ret;
     my $precision = $rel_ret / $num_ret;
     my $recall = $rel_ret / $num_rel;
     $cum{$query}{precision} = $precision;
@@ -116,6 +118,7 @@ sub means() {
 
   my $all_precision = $sum_precision / $num_query;
   my $all_recall = $sum_recall / $num_query;
+  printf "all\tsum_rel_ret\t%6.3d\n", $sum_rel_ret;
   printf "all\tprec\t%6.3f\n", $all_precision;
   printf "all\trecall\t%6.3f\n", $all_recall;
 }
