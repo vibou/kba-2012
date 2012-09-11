@@ -138,7 +138,9 @@ class WikiMatch():
     if org_query in self._wiki_ent_hash:
       for ent in self._wiki_ent_hash[org_query]:
         if re.search(ent, doc, re.I | re.M):
-          score = score + WIKI_ENT_MATCH_SCORE
+          ## change to count match once to count the total number of matches
+          match_list = re.findall(ent, doc, re.I | re.M)
+          score = score + WIKI_ENT_MATCH_SCORE * len(match_list)
     else:
       print 'I can not find the query [%s] in self._wiki_ent_hash' %org_query
 
