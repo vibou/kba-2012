@@ -26,9 +26,9 @@ my $save_file = shift or die $usage;
 
 my %run;
 
-my $team_id = "UDel";
-my $system_id = "exact-match";
-#my $system_id = "wiki-match";
+my $team_id = "udel_fang";
+#my $system_id = "UDInfoKBA_EX";
+my $system_id = "UDInfoKBA_WIKI_3";
 
 main();
 

@@ -31,7 +31,7 @@ my %rel_run;
 
 # the threshold of score for the relevant documents
 #my $REL_THRED = 101;
-my $REL_THRED = 100;
+my $REL_THRED = 102;
 
 main();
 
@@ -62,7 +62,7 @@ sub load_run(){
     chomp;
     next if /^$/;
 
-    s/\-(\d+) $/\- $1/g;
+    #s/\-(\d+) $/\- $1/g;
     my ($lead, $query, $did, $score) = split / - /;
     $run{$query}{$did} = $score;
   }

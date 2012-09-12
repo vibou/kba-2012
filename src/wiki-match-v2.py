@@ -46,7 +46,8 @@ class WikiMatch():
   _wiki_ent_hash = None
 
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.exact_match_db)
+      #db=RedisDB.exact_match_db)
+      db=RedisDB.test_exact_match_db)
   _wiki_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.wiki_match_db)
   _wiki_ent_list_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
