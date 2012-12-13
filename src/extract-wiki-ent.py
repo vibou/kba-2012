@@ -101,8 +101,6 @@ class EntWikiExtractor():
       print '-'*60
       return None
 
-    from wikimarkup import parse, registerInternalLinkHook
-
 def wikipediaLinkHook(parser_env, namespace, body):
   # namespace is going to be 'Wikipedia'
   (article, pipe, text) = body.partition('|')
