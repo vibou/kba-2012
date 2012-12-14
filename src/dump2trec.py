@@ -24,11 +24,13 @@ class Doc(dict):
 
 class Dump2Trec():
 
+  _corpus_dir = ''
   _date = ''
   _save_dir = ''
   _save_file = ''
 
-  def ProcessDir(self, date, save):
+  def ProcessDir(self, corpus, date, save):
+    self._corpus_dir = corpus
     self._date = date
     self._save_dir = save
     self._save_file = os.path.join(self._save_dir, self._date)
@@ -38,12 +40,14 @@ class Dump2Trec():
   Scane a dir with specific date and time
   """
   def ScanDateDir(self):
-    date_dir = os.path.join(corpus_dir, self._date)
+    date_dir = os.path.join(self._corpus_dir, self._date)
 
     if not os.path.isdir(date_dir):
       msg = 'directory %s can not be opened' %date_dir
       print 'Error: %s' % (msg)
       return
+
+    print 'Processing %s' %( self._date )
 
     files = []
     for fname in os.listdir(date_dir):
@@ -53,6 +57,7 @@ class Dump2Trec():
 
       fpath = os.path.join(date_dir, fname)
       self.ProcessThriftFile(fpath)
+      #return
 
   """
   Process one thrift file
@@ -64,6 +69,8 @@ class Dump2Trec():
       msg = 'failed to load: %s' % fpath
       print 'Error: %s' % (msg)
       return
+
+    #print 'Processing %s' %( fpath )
 
     ## wrap it in a file obj, thrift transport, and thrift protocol
     transport = StringIO(thrift_data)
@@ -102,7 +109,7 @@ class Dump2Trec():
     # prepare for the document data in TREC format
     doc_str = '<DOC>\n'
 
-    str = '<DOCID> %s </DOCID>\n' %( doc.id )
+    str = '<DOCNO> %s </DOCNO>\n' %( doc.id )
     doc_str += str
 
     doc_str += '<TEXT>\n'
@@ -123,12 +130,13 @@ class Dump2Trec():
 def main():
   import argparse
   parser = argparse.ArgumentParser(usage=__doc__)
+  parser.add_argument('corpus_dir')
   parser.add_argument('date')
   parser.add_argument('save_dir')
   args = parser.parse_args()
 
   dump = Dump2Trec()
-  dump.ProcessDir(args.date, args.save_dir)
+  dump.ProcessDir(args.corpus_dir, args.date, args.save_dir)
 
 if __name__ == "__main__":
   main()
