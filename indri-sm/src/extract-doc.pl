@@ -6,7 +6,8 @@
 
 use strict;
 use Getopt::Long;
-use DateTime;
+use lib '/usr/local/perl/lib/site_perl/5.8.8/';
+#use DateTime;
 
 my $script_name = "extract-doc.pl <ret-list> <save>";
 my $usage = "$script_name [-v]\n";
@@ -42,11 +43,21 @@ sub load_ret_list(){
 
     my ($qid, undef, $did, $rank, $score, undef) = split;
     my ($epoch, $md5) = split /-/, $did;
-    my $dt = DateTime->from_epoch( epoch => $epoch );
-    my $corpus_file = sprintf("%4d-%2d-%2d-%2d", $dt->year, $dt->month,
-      $dt->day, $dt->hour);
+   
+    # Thanks to http://search.cpan.org/~drolsky/DateTime-0.78/lib/DateTime.pm
+    #my $dt = DateTime->from_epoch( epoch => $epoch );
+    #my $corpus_file = sprintf("%4d-%2d-%2d-%2d", $dt->year, $dt->month,
+    #$dt->day, $dt->hour);
+    
+    # Thanks to http://www.epochconverter.com/programming/functions-perl.php
+    # since our timezone is GMT-4, we need to calibrate it to GMT time
+    $epoch = $epoch + 14400;
+    my($sec, $min, $hour, $day, $month, $year) = (localtime($epoch))[0,1,2,3,4,5];
+    $year = $year + 1900;
+    $month = $month + 1;
+    my $corpus_file = sprintf("%04d-%02d-%02d-%02d", $year, $month, $day, $hour);
 
-    $ret_list{$qid}{$did} = 1;
+    $ret_list{$qid}{$rank} = $did;
     $rev_ret_list{$corpus_file}{$did}{$qid} = 1;
   }
 
@@ -65,8 +76,10 @@ sub parse_corpus(){
       print "Skipping $file\n";
       next;
     }
-    my $raw_file = "$dir/$file";
+    my $raw_file = "$corpus_dir/$file";
+    #print "Parsing $raw_file\n";
     parse_raw_file($file, $raw_file);
+    #last;
   }
 }
 
@@ -83,10 +96,13 @@ sub parse_raw_file(){
   my $doc = "";
   my $did;
   my $is_in_doc = 0;
+  my $has_found = 0;
 
   while(<RAW>){
     chomp;
     next if /^$/;
+    next if /<TEXT>/;
+    next if /<\/TEXT>/;
 
     if($_ =~ m/<DOCNO>(.*)<\/DOCNO>/){
       $did = $1;
@@ -107,6 +123,7 @@ sub parse_raw_file(){
         # check whether any entity is mapped to the document
         if(defined $rev_ret_list{$file}{$did}){
           $doc_list{$did} = $doc;
+          $has_found = 1;
         }
 
         # reset the intermediate variables
@@ -119,7 +136,34 @@ sub parse_raw_file(){
     }
   }
 
+  unless(1 == $has_found){
+    print "No document found in $raw_file\n";
+  }
   close RAW;
+}
+
+sub save_docs(){
+  open CORPUS, ">" . $save_file 
+    or die "Can't open `$save_file': $!\n";
+  print "Saving $save_file\n";
+
+  for my $qid(sort {$a<=>$b} keys %ret_list){
+    for my $rank(sort {$a<=>$b} keys %{$ret_list{$qid}}){
+      my $did = $ret_list{$qid}{$rank};
+      my $doc = $doc_list{$did};
+
+      next if !defined $doc;
+      print CORPUS "<DOC>\n";
+      print CORPUS "<DOCNO> $did <\/DOCNO>\n";
+      print CORPUS "<QUERY> $qid-$rank <\/QUERY>\n";
+      print CORPUS "<TEXT>\n";
+      print CORPUS "\n$doc\n\n";
+      print CORPUS "<\/TEXT>\n";
+      print CORPUS "<\/DOC>\n";
+    }
+  }
+
+  close CORPUS;
 }
 
 

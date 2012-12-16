@@ -26,7 +26,8 @@ from kba_thrift.ttypes import StreamItem, StreamTime, ContentItem
 
 define("port", default=8888, help="run on the given port", type=int)
 
-corpus_dir = './corpus/cleansed'
+#corpus_dir = './corpus/cleansed'
+corpus_dir = './uncompressed/training'
 
 class Dir(dict):
   """

@@ -37,7 +37,7 @@ class Dump2Trec():
     self.ScanDateDir()
 
   """
-  Scane a dir with specific date and time
+  Scan a dir with specific date and time
   """
   def ScanDateDir(self):
     date_dir = os.path.join(self._corpus_dir, self._date)
