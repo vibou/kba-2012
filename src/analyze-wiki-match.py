@@ -186,6 +186,47 @@ class WikiMatch():
 
     return score
 
+  '''
+  Transfer the raw data to HTML
+  Basically the goal is to make sure each paragraph is embedded in <p></p>
+  '''
+  def raw2html(self, qid, doc):
+    '''
+    Calculate the score of a document w.r.t. the given query
+    '''
+    query = self._query_hash[qid]
+    org_query = self._org_query_hash[qid]
+
+    #doc = self.sanitize(doc)
+
+    score = 0
+    ## first, calculate it with the query entity
+    ## use the query entity as the regex to apply exact match
+    match = re.search(query, doc, re.I | re.M)
+    if match:
+      score = score + QUERY_ENT_MATCH_SCORE
+      query_span = "<span class=\"qent\">" + query + "</span>"
+      query_regex = ur'%s' %( query )
+      replacer = re.compile(query_regex, re.I | re.M)
+      doc = replacer.sub(query_span, doc.decode('unicode-escape'))
+
+    if org_query in self._wiki_ent_hash:
+      for ent in self._wiki_ent_hash[org_query]:
+        if re.search(ent, doc, re.I | re.M):
+          ## change to count match once to count the total number of matches
+          match_list = re.findall(ent, doc, re.I | re.M)
+          score = score + WIKI_ENT_MATCH_SCORE * len(match_list)
+
+          ent_span = "<span class=\"rent\">" + ent + "</span>"
+          ent_regex = ur'%s' %( ent )
+          replacer = re.compile(ent_regex, re.I | re.M)
+          doc = replacer.sub(ent_span, doc)
+
+    else:
+      print 'I can not find the query [%s] in self._wiki_ent_hash' %org_query
+
+    return doc
+
   def process_stream_item(self, org_query, fname, stream_id, stream_data):
     '''
     process the streaming item: applying exact match for each of the query
@@ -208,15 +249,13 @@ class WikiMatch():
         return
 
       id = self._wiki_match_db.llen(RedisDB.ret_item_list)
-      id = id + 1
-      self._wiki_match_db.rpush(RedisDB.ret_item_list, id)
 
       ## create a hash record
       ret_item = {'id' : id}
       ret_item['query'] = org_query
       ret_item['file'] = fname
       ret_item['stream_id'] = stream_id
-      ret_item['stream_data'] = stream_data
+      ret_item['stream_data'] = self.raw2html(qid, stream_data)
       ret_item['score'] = score
 
       in_annotation_set = (stream_id, org_query) in self._annotation
@@ -230,6 +269,9 @@ class WikiMatch():
 
       self._wiki_match_db.hmset(id, ret_item)
 
+      #id = id + 1
+      self._wiki_match_db.rpush(RedisDB.ret_item_list, id)
+
       ## verbose output
       print 'Match: %d - %s - %s - %d - %s' %(id, org_query, stream_id, score,
           ret_item['rel'])
@@ -240,7 +282,7 @@ class WikiMatch():
       print '-'*60
       traceback.print_exc(file=sys.stdout)
       print '-'*60
-      pass
+      sys.exit(-1)
 
   def parse_data(self):
     '''

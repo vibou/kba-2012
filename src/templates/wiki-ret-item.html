@@ -1,6 +1,11 @@
 <html>
 <head>
   <title>{{ title }}</title>
+  <style>
+  span.qent { color: blue; font-size: 25px;}
+  span.rent { color: red;  font-size: 25px;}
+  </style>
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
 </head>
 
 <body style="font-family:Monaco, monospace; font-size:80%;">
@@ -15,6 +20,12 @@
   <p>Relevant: {{ ret_item.rel }}</p>
   <br/>
   <p>Body: </p>
-  <p style="width: 600px">{{ escape(ret_item.stream_data) }}</p>
+  <div id="wrapper" style="width: 600px">{{ ret_item.stream_data }}</div>
+
+  <script>
+    var str = $("div#wrapper").text();
+    $("div#wrapper").html(str);
+  </script>
+
 </body>
 </html>

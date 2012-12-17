@@ -59,7 +59,7 @@ class BaseHandler(tornado.web.RequestHandler):
 
 class HomeHandler(BaseHandler):
   def get(self):
-    url = '/train'
+    url = '/wiki'
     self.redirect(url)
 
 class TrainIndexHandler(BaseHandler):
@@ -200,13 +200,26 @@ class WikiRetHandler(BaseHandler):
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['score'] = the_ret_item[4]
     ret_item['rel'] = the_ret_item[5]
-    ret_item['stream_data'] = the_ret_item[6]
+    ret_item['stream_data'] = self.raw2html(the_ret_item[6])
 
     list = the_ret_item[3].split('-')
     epoch = list[0]
     ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("wiki-ret-item.html", title='ret_item', ret_item=ret_item)
+
+  '''
+  Transfer the raw data to HTML
+  Basically the goal is to make sure each paragraph is embedded in <p></p>
+  '''
+  def raw2html(self, raw):
+    sentences = raw.split('\n')
+    html = ""
+    for sent in sentences:
+      sent = "<p>" + sent + "</p>\n"
+      html += sent
+
+    return html
 
 class EvalHandler(BaseHandler):
   def get(self):
