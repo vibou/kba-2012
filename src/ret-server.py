@@ -53,6 +53,10 @@ class BaseHandler(tornado.web.RequestHandler):
   def _test_exact_match_db(self):
     return self.application._test_exact_match_db
 
+  @property
+  def _wiki_match_db(self):
+    return self.application._wiki_match_db
+
 class HomeHandler(BaseHandler):
   def get(self):
     url = '/train'
@@ -154,6 +158,56 @@ class TestRetHandler(BaseHandler):
 
     self.render("ret-item.html", title='ret_item', ret_item=ret_item)
 
+class WikiIndexHandler(BaseHandler):
+  def get(self):
+    num = self._wiki_match_db.llen(RedisDB.ret_item_list)
+    if 0 == num:
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item_list = self._wiki_match_db.lrange(RedisDB.ret_item_list, 0, num)
+    ret_items = []
+    for ret_id in ret_item_list:
+      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score', 'rel']
+      the_ret_item = self._wiki_match_db.hmget(ret_id, ret_item_keys)
+
+      ret_item = DictItem()
+      ret_item['id'] = the_ret_item[0]
+      ret_item['query'] = the_ret_item[1]
+      ret_item['file'] = the_ret_item[2]
+      ret_item['stream_id'] = the_ret_item[3]
+      ret_item['score'] = the_ret_item[4]
+      ret_item['rel'] = the_ret_item[5]
+      ret_items.append(ret_item)
+
+    self.render("wiki-ret-index.html", title='KBA Testing Results', ret_items=ret_items)
+
+class WikiRetHandler(BaseHandler):
+  def get(self, ret_id):
+    ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score', 'rel', 'stream_data']
+    the_ret_item = self._wiki_match_db.hmget(ret_id, ret_item_keys)
+
+    if not the_ret_item[5]:
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item = DictItem()
+    ret_item['id'] = the_ret_item[0]
+    ret_item['query'] = the_ret_item[1]
+    ret_item['file'] = the_ret_item[2]
+    ret_item['stream_id'] = the_ret_item[3]
+    ret_item['score'] = the_ret_item[4]
+    ret_item['rel'] = the_ret_item[5]
+    ret_item['stream_data'] = the_ret_item[6]
+
+    list = the_ret_item[3].split('-')
+    epoch = list[0]
+    ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
+
+    self.render("wiki-ret-item.html", title='ret_item', ret_item=ret_item)
+
 class EvalHandler(BaseHandler):
   def get(self):
     num = self._eval_db.llen(RedisDB.ret_item_list)
@@ -240,9 +294,11 @@ class Application(tornado.web.Application):
       (r"/", HomeHandler),
       (r"/train", TrainIndexHandler),
       (r"/test", TestIndexHandler),
+      (r"/wiki", WikiIndexHandler),
       (r"/eval", EvalHandler),
       (r"/train/ret/(\d+)", TrainRetHandler),
       (r"/test/ret/(\d+)", TestRetHandler),
+      (r"/wiki/ret/(\d+)", WikiRetHandler),
       (r"/eval/(\d+)", EvalItemHandler),
       (r"/wiki-ent-list", WikiEntListHandler),
     ]
@@ -264,6 +320,9 @@ class Application(tornado.web.Application):
 
     self._test_exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.test_exact_match_db)
+
+    self._wiki_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+        db=RedisDB.wiki_match_db)
 
 def main():
   tornado.options.parse_command_line()

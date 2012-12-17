@@ -11,10 +11,15 @@ class RedisDB(object):
     # specifications of which DB to use for different purposes
     eval_db = 0
     exact_match_db = 1
-    wiki_match_db = 2
+
+    #wiki_match_db = 5
+    wiki_match_db = 6
+
     wiki_ent_list_db = 3
 
     test_exact_match_db = 8
+
+    analyze_wiki_match_db = 9
 
     # specifications of hash tables
     # the to-be-processed tweet list
