@@ -1,6 +1,7 @@
 <html>
 <head>
   <title>{{ title }}</title>
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
 </head>
 
 <body style="font-family:Monaco, monospace; font-size:80%;">
@@ -17,6 +18,12 @@
   <p>Anchor: {{ doc.anchor }}
   <br/>
   <p>Body: </p>
-  <p style="width: 600px">{{ escape(doc.body) }}</p>
+  <div id="wrapper" style="width: 600px">{{ doc.body }}</p>
+  
+  <script>
+    var str = $("div#wrapper").text();
+    $("div#wrapper").html(str);
+  </script>
+
 </body>
 </html>

@@ -282,7 +282,7 @@ class WikiMatch():
       print '-'*60
       traceback.print_exc(file=sys.stdout)
       print '-'*60
-      sys.exit(-1)
+      #sys.exit(-1)
 
   def parse_data(self):
     '''
