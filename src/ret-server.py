@@ -252,6 +252,10 @@ class NewWikiIndexHandler(BaseHandler):
 
 class NewWikiRetHandler(BaseHandler):
   def get(self, ret_id):
+    url = '/wiki/ret/%s' % ret_id
+    self.redirect(url, permanent=True)
+
+    '''
     ret_item_keys = ['id', 'query', 'file', 'stream_id', 'score', 'rel', 'stream_data']
     the_ret_item = self._new_wiki_match_db.hmget(ret_id, ret_item_keys)
 
@@ -274,6 +278,7 @@ class NewWikiRetHandler(BaseHandler):
     ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("wiki-ret-item.html", title='ret_item', ret_item=ret_item)
+    '''
 
   '''
   Transfer the raw data to HTML

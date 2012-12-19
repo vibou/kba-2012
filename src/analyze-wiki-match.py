@@ -119,13 +119,21 @@ class WikiMatch():
 
       ## Add the stream_id and urlname to a hashed dictionary
       ## 0 means that its not central 1 means that it is central
-
+      '''
       if (stream_id, urlname) in self._annotation:
         ## 2 means the annotators gave it a yes for centrality
         if rating < thresh:
           self._annotation[(stream_id, urlname)] = False
       else:
         self._annotation[(stream_id, urlname)] = rating >= thresh
+      '''
+
+      ## here we kept all the ratings as what they are in the annotation list
+      if (stream_id, urlname) in self._annotation:
+        if rating > self._annotation[(stream_id, urlname)]:
+          self._annotation[(stream_id, urlname)] = rating
+      else:
+        self._annotation[(stream_id, urlname)] = rating
 
 
   def sanitize(self, str):
@@ -258,14 +266,18 @@ class WikiMatch():
       ret_item['stream_data'] = self.raw2html(qid, stream_data)
       ret_item['score'] = score
 
+      #Show the annotation of the stream_id-query pair as what is is
       in_annotation_set = (stream_id, org_query) in self._annotation
       ## In the annotation set and relevant
-      if in_annotation_set and self._annotation[(stream_id, org_query)]:
+      #if in_annotation_set and self._annotation[(stream_id, org_query)]:
+      if in_annotation_set:
         ## mark it as relevant
-        ret_item['rel'] = 'Yes'
+        #ret_item['rel'] = 'Yes'
+        ret_item['rel'] = self._annotation[(stream_id, org_query)]
       else:
         ## mark it as irrelevant
-        ret_item['rel'] = 'No'
+        #ret_item['rel'] = 'No'
+        ret_item['rel'] = -100
 
       self._wiki_match_db.hmset(id, ret_item)
 
