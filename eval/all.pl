@@ -2,11 +2,11 @@
 
 #
 # Evaluate a TREC 2012 KBA track run.  The measures computed are
-# Precision, Recall,  F1, MAP and nDCG
+# Precision, Recall,  F1, MAP and nDCG@R
 #
 # Version: 1.1.
 #
-# Usage: ndcg.pl [-v] <qrels> <runfile>\n";
+# Usage: all.pl [-v] <qrels> <runfile>\n";
 #        -v: verbose mode (default: no)
 #        <qrels> and <runfile> may be gzipped.
 #
@@ -14,7 +14,7 @@
 use strict;
 use Getopt::Long;
 
-my $usage = "eval.pl [-v] <qrels> <runfile>\n";
+my $usage = "all.pl [-v] <qrels> <runfile>\n";
 my $verbose = 0;
 GetOptions('verbose!' => \$verbose,
     ) or die $usage;
@@ -36,6 +36,7 @@ sub main(){
   load_run();
   pr_eval();
   map_eval();
+  ndcg_eval();
   means();
 }
 
@@ -47,7 +48,7 @@ sub load_qrels(){
     next if /^$/;
 
     my (undef, undef, $did, $query, $score, $rel, $const) = split;
-    if($rel > 0){
+    if($score > 0 and $rel > 0){
       $qrel{$query}{$did} = $rel;
     }
   }
@@ -124,24 +125,80 @@ sub map_eval {
   }
 }
 
+# evaluate the results based on nDCG@R
+sub ndcg_eval {
+  my %ie_qrel;
+
+  for my $topic(sort {$a<=>$b} keys %qrel){
+    my $num_rel = 0;
+    my $ndcg = 0;
+
+    # prepare for the ideal ranking list based on the judgment file
+    my $rank = 1;
+    for my $did(sort {$qrel{$topic}{$b}<=>$qrel{$topic}{$a}} 
+      keys %{$qrel{$topic}}){
+      $ie_qrel{$topic}{$rank} = $qrel{$topic}{$did};
+      ++$rank;
+    }
+    my $num_rel = $rank -1;
+   
+    $rank = 1;
+    my $dcg = 0;
+    my $idcg = 0;
+    for my $did(sort {$run{$topic}{$b}<=>$run{$topic}{$a}} keys %{$run{$topic}}){
+      if(defined $qrel{$topic}{$did}){
+        my $e = $qrel{$topic}{$did};
+
+        next if !defined $ie_qrel{$topic}{$rank};
+        my $ie = $ie_qrel{$topic}{$rank};
+        next if 0 == $ie;
+
+        $dcg += ($e / (log($rank + 1)/log(2)));
+        $idcg += ($ie / (log($rank + 1)/log(2)));
+      }
+      ++$rank;
+    }
+
+    # The run may retrieve a short list, but the ideal gain is up tp the
+    # number of nonzero gains available in the topic
+    while($rank < $num_rel
+        and $ie_qrel{$topic}{$rank} != 0){
+      my $ie = $ie_qrel{$topic}{$rank};
+      $idcg += ($ie / (log($rank + 1)/log(2)));
+      ++$rank;
+    }
+
+    if(0 != $idcg){
+      $ndcg = $dcg / $idcg;
+    }
+
+    $cum{$topic}{nDCG} = $ndcg;
+    $cum{nDCG} += $ndcg;
+  }
+}
+
 sub means() {
   if($verbose){
     for my $topic(sort {$a<=>$b} keys %qrel){
       if(!defined $run{$topic}){
-        my $map = 0;
         my $p = 0;
         my $r = 0;
+        my $map = 0;
+        my $ndcg = 0;
         printf "%d\tPrec\t%6.3f\n", $topic, $p;
         printf "%d\tRecal\t%6.3f\n", $topic, $r;
         printf "%d\tMAP\t%6.3f\n", $topic, $map;
+        printf "%d\tnDCG\t%6.3f\n", $topic, $ndcg;
         next;
       }
-      my $map = $cum{$topic}{MAP};
       my $p = $cum{$topic}{precision};
       my $r = $cum{$topic}{recall};
+      my $map = $cum{$topic}{MAP};
+      my $ndcg = $cum{$topic}{nDCG};
       printf "%d\tPrec\t%6.3f\n", $topic, $p;
       printf "%d\tRecal\t%6.3f\n", $topic, $r;
       printf "%d\tMAP\t%6.3f\n", $topic, $map;
+      printf "%d\tnDCG\t%6.3f\n", $topic, $ndcg;
     }
   }
 
@@ -150,5 +207,6 @@ sub means() {
   printf "all\tPrec\t%6.3f\n", $cum{P}/$num_q;
   printf "all\tRecall\t%6.3f\n", $cum{R}/$num_q;
   printf "all\tMAP\t%6.3f\n", $cum{MAP}/$num_q;
+  printf "all\tnDCG\t%6.3f\n", $cum{nDCG}/$num_q;
 }
 
