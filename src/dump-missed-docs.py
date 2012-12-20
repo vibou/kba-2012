@@ -86,6 +86,15 @@ class DumpMissedDocs():
       else:
         thresh = 2
 
+      ## here we kept all the ratings as what they are in the annotation list
+      if (stream_id, urlname) in self._annotation:
+        if rating < self._annotation[(stream_id, urlname)]:
+          self._annotation[(stream_id, urlname)] = rating
+      else:
+        self._annotation[(stream_id, urlname)] = rating
+
+    for (stream_id, urlname) in self._annotation:
+      rating = self._annotation[(stream_id, urlname)]
       if rating > 0:
         if(stream_id, urlname) in self._retrieved_docs:
           continue
@@ -123,7 +132,7 @@ class DumpMissedDocs():
       if fname.endswith('.xz'): continue
 
       ## verbose output
-      print 'Process %s' % fname
+      #print 'Process %s' % fname
 
       ### reverse the steps from above:
       ## load the encrypted data
@@ -160,7 +169,7 @@ class DumpMissedDocs():
 
             self._missed_docs_db.hmset(id, ret_item)
             self._missed_docs_db.rpush(RedisDB.ret_item_list, id)
-            print 'Missed %s %s' %(urlname, stream_id)
+            print 'Missed %s %s\n\n\n' %(urlname, stream_id)
 
         ## suppress the verbose output
         #print '%s' % stream_item.doc_id
