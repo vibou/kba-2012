@@ -61,6 +61,10 @@ class BaseHandler(tornado.web.RequestHandler):
   def _new_wiki_match_db(self):
     return self.application._new_wiki_match_db
 
+  @property
+  def _missed_docs_db(self):
+    return self.application._missed_docs_db
+
 class HomeHandler(BaseHandler):
   def get(self):
     url = '/wiki'
@@ -373,6 +377,66 @@ class WikiEntListHandler(BaseHandler):
 
     self.render("wiki-ent-list.html", title='KBA Wiki Ent List', ent_items=ent_items)
 
+class MissedIndexHandler(BaseHandler):
+  def get(self):
+    num = self._missed_docs_db.llen(RedisDB.ret_item_list)
+    if 0 == num:
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item_list = self._missed_docs_db.lrange(RedisDB.ret_item_list, 0, num)
+    ret_items = []
+    for ret_id in ret_item_list:
+      ret_item_keys = ['id', 'query', 'stream_id', 'rating']
+      the_ret_item = self._missed_docs_db.hmget(ret_id, ret_item_keys)
+
+      ret_item = DictItem()
+      ret_item['id'] = the_ret_item[0]
+      ret_item['query'] = the_ret_item[1]
+      ret_item['stream_id'] = the_ret_item[2]
+      ret_item['rating'] = the_ret_item[3]
+      ret_items.append(ret_item)
+
+    self.render("missed-index.html", title='KBA Missed Results', ret_items=ret_items)
+
+class MissedRetHandler(BaseHandler):
+  def get(self, ret_id):
+    ret_item_keys = ['id', 'query', 'file', 'stream_id', 'rating', 'stream_data']
+    the_ret_item = self._missed_docs_db.hmget(ret_id, ret_item_keys)
+
+    if not the_ret_item[5]:
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item = DictItem()
+    ret_item['id'] = the_ret_item[0]
+    ret_item['query'] = the_ret_item[1]
+    ret_item['file'] = the_ret_item[2]
+    ret_item['stream_id'] = the_ret_item[3]
+    ret_item['rating'] = the_ret_item[4]
+    ret_item['stream_data'] = self.raw2html(the_ret_item[5])
+
+    list = the_ret_item[3].split('-')
+    epoch = list[0]
+    ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
+
+    self.render("missed-item.html", title='ret_item', ret_item=ret_item)
+
+  '''
+  Transfer the raw data to HTML
+  Basically the goal is to make sure each paragraph is embedded in <p></p>
+  '''
+  def raw2html(self, raw):
+    sentences = raw.split('\n')
+    html = ""
+    for sent in sentences:
+      sent = "<p>" + sent + "</p>\n"
+      html += sent
+
+    return html
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
@@ -382,11 +446,13 @@ class Application(tornado.web.Application):
       (r"/wiki", WikiIndexHandler),
       (r"/new-wiki", NewWikiIndexHandler),
       (r"/eval", EvalHandler),
+      (r"/missed", MissedIndexHandler),
       (r"/train/ret/(\d+)", TrainRetHandler),
       (r"/test/ret/(\d+)", TestRetHandler),
       (r"/wiki/ret/(\d+)", WikiRetHandler),
       (r"/new-wiki/ret/(\d+)", NewWikiRetHandler),
       (r"/eval/(\d+)", EvalItemHandler),
+      (r"/missed/ret/(\d+)", MissedRetHandler),
       (r"/wiki-ent-list", WikiEntListHandler),
     ]
 
@@ -413,6 +479,9 @@ class Application(tornado.web.Application):
 
     self._new_wiki_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.new_wiki_match_db)
+
+    self._missed_docs_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+        db=RedisDB.missed_docs_db)
 
 def main():
   tornado.options.parse_command_line()

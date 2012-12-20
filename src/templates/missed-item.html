@@ -1,0 +1,31 @@
+<html>
+<head>
+  <title>{{ title }}</title>
+  <style>
+  span.qent { color: blue; font-size: 25px;}
+  span.rent { color: red;  font-size: 25px;}
+  </style>
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+</head>
+
+<body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>stream_id: {{ ret_item.stream_id }}</p>
+  <br/>
+  <p>file: {{ ret_item.file }}</p>
+  <br/>
+  <p>Query: {{ ret_item.query }}</p>
+  <br/>
+  <p>Time: {{ ret_item.time }}</p>
+  <br/>
+  <p>Rating: {{ ret_item.rating }}</p>
+  <br/>
+  <p>Body: </p>
+  <div id="wrapper" style="width: 600px">{{ ret_item.stream_data }}</div>
+
+  <script>
+    var str = $("div#wrapper").text();
+    $("div#wrapper").html(str);
+  </script>
+
+</body>
+</html>

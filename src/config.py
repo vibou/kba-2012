@@ -22,6 +22,8 @@ class RedisDB(object):
 
     analyze_wiki_match_db = 9
 
+    missed_docs_db = 10
+
     # specifications of hash tables
     # the to-be-processed tweet list
     raw_query_list = 'raw_query_list'

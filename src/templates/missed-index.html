@@ -1,0 +1,19 @@
+<html>
+<head>
+  <title>{{ title }}</title>
+</head>
+
+<body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>View <a href="/eval">Evaluation Judgments</a></p>
+  <p>{{ len(ret_items) }} ret records in total.</p>
+  <ul>
+    {% for ret_item in sorted(ret_items, key=lambda ret_item:ret_item.query) %}
+    <li>
+      {{ ret_item.query }}
+      <a href="/missed/ret/{{ ret_item.id }}">{{ ret_item.stream_id }}</a>
+      {{ ret_item.rating }}
+    </li>
+    {% end %}
+  </ul>
+</body>
+</html>

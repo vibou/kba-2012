@@ -6,7 +6,7 @@
 #
 # Version: 1.1.
 #
-# Usage: all.pl [-v] <qrels> <runfile>\n";
+# Usage: all.pl [-v] <train-or-test> <qrels> <runfile>\n";
 #        -v: verbose mode (default: no)
 #        <qrels> and <runfile> may be gzipped.
 #
@@ -14,7 +14,7 @@
 use strict;
 use Getopt::Long;
 
-my $usage = "all.pl [-v] <qrels> <runfile>\n";
+my $usage = "all.pl [-v] <train-or-test> <qrels> <runfile>\n";
 my $verbose = 0;
 GetOptions('verbose!' => \$verbose,
     ) or die $usage;
@@ -22,12 +22,17 @@ GetOptions('verbose!' => \$verbose,
 # allow qrels and runfiles to be compressed with gzip
 @ARGV = map { /.gz$/ ? "gzip -dc $_ |" : $_ } @ARGV;
 
+my $train_or_test = shift or die $usage;
 my $qrels_file = shift or die $usage;
 my $run_file = shift or die $usage;
 
 my %qrel;
 my %run;
 my %cum;
+
+unless('train' eq $train_or_test or 'test' eq $train_or_test){
+  die "\$train_or_test must be 'train' or 'equal'\!";
+}
 
 main();
 
@@ -48,6 +53,14 @@ sub load_qrels(){
     next if /^$/;
 
     my (undef, undef, $did, $query, $score, $rel, $const) = split;
+    my ($epoch, undef) = split /-/, $did;
+    # this is the epoch time for the last second of 2011, i.e. Dec 31 2011
+    # 23:59:59 GMT+0000
+    if('train' eq $train_or_test){
+      next if $epoch > 1325375999;
+    }else{
+      next if $epoch <= 1325375999;
+    }
     if($score > 0 and $rel > 0){
       $qrel{$query}{$did} = $rel;
     }
@@ -68,7 +81,7 @@ sub load_run(){
   close RUN;
 }
 
-# evaluate by precision and recall
+# evaluate by precision, recall and F1
 sub pr_eval(){
   for my $query(sort {$a cmp $b} keys %qrel){
     my $num_ret = scalar keys %{$run{$query}};
@@ -89,14 +102,17 @@ sub pr_eval(){
 
     my $precision = $rel_ret / $num_ret;
     my $recall = $rel_ret / $num_rel;
+    my $f1 = 2 * $precision * $recall / ($precision + $recall);
     $cum{$query}{P} = $precision;
     $cum{$query}{R} = $recall;
+    $cum{$query}{F1} = $f1;
 
     printf "$query\tprec\t%6.3f\n", $precision if $verbose;
     printf "$query\trecall\t%6.3f\n", $recall if $verbose;
 
     $cum{P} += $precision;
     $cum{R} += $recall;
+    $cum{F1} += $f1;
   }
 }
 
@@ -183,20 +199,24 @@ sub means() {
       if(!defined $run{$topic}){
         my $p = 0;
         my $r = 0;
+        my $f1 = 0;
         my $map = 0;
         my $ndcg = 0;
         printf "%d\tPrec\t%6.3f\n", $topic, $p;
         printf "%d\tRecal\t%6.3f\n", $topic, $r;
+        printf "%d\tF1\t%6.3f\n", $topic, $f1;
         printf "%d\tMAP\t%6.3f\n", $topic, $map;
         printf "%d\tnDCG\t%6.3f\n", $topic, $ndcg;
         next;
       }
       my $p = $cum{$topic}{precision};
       my $r = $cum{$topic}{recall};
+      my $f1 = $cum{$topic}{F1};
       my $map = $cum{$topic}{MAP};
       my $ndcg = $cum{$topic}{nDCG};
       printf "%d\tPrec\t%6.3f\n", $topic, $p;
       printf "%d\tRecal\t%6.3f\n", $topic, $r;
+      printf "%d\tF1\t%6.3f\n", $topic, $f1;
       printf "%d\tMAP\t%6.3f\n", $topic, $map;
       printf "%d\tnDCG\t%6.3f\n", $topic, $ndcg;
     }
@@ -206,6 +226,7 @@ sub means() {
   print "Topic Number: $num_q\n";
   printf "all\tPrec\t%6.3f\n", $cum{P}/$num_q;
   printf "all\tRecall\t%6.3f\n", $cum{R}/$num_q;
+  printf "all\tF1\t%6.3f\n", $cum{F1}/$num_q;
   printf "all\tMAP\t%6.3f\n", $cum{MAP}/$num_q;
   printf "all\tnDCG\t%6.3f\n", $cum{nDCG}/$num_q;
 }
