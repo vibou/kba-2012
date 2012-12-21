@@ -130,7 +130,8 @@ class WikiMatch():
 
       ## here we kept all the ratings as what they are in the annotation list
       if (stream_id, urlname) in self._annotation:
-        if rating > self._annotation[(stream_id, urlname)]:
+        ## old rating which is greater than newer one will be overwritten
+        if rating < self._annotation[(stream_id, urlname)]:
           self._annotation[(stream_id, urlname)] = rating
       else:
         self._annotation[(stream_id, urlname)] = rating
