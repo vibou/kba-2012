@@ -11,6 +11,7 @@ class RedisDB(object):
     # specifications of which DB to use for different purposes
     eval_db = 0
     exact_match_db = 1
+    fuzzy_match_db = 2
 
     #wiki_match_db = 5
     wiki_match_db = 6
