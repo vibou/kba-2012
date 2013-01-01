@@ -39,7 +39,7 @@ sub main(){
   load_qrels();
   load_run();
   gen_result();
-  save_results();
+  #save_results();
 }
 
 # load qrel data
@@ -71,14 +71,30 @@ sub load_run(){
 
 # generate results
 sub gen_result(){
+  my $sum_all = 0;
+  my $num_all = 0;
   for my $query(sort {$a cmp $b} keys %qrel){
+    my $sum_score = 0;
+    my $num_score = 0;
     for my $did(keys %{$run{$query}}){
       my $score = $run{$query}{$did};
       if($score > $REL_THRED){
         $rel_run{$query}{$did} = $score;
       }
+      if($score >= 100){
+        $score -= 100;
+      }
+      $sum_score += $score;
+      ++$num_score;
     }
+    my $avg_score = $sum_score / $num_score;
+    printf "%32s\t%.3f\n", $query, $avg_score;
+    $sum_all += $avg_score;
+    ++$num_all;
   }
+  my $query = "all";
+  my $avg_score = $sum_all / $num_all;
+  printf "%32s\t%.3f\n", $query, $avg_score;
 }
 
 #save the results
@@ -95,3 +111,4 @@ sub save_results(){
 
   close FILE;
 }
+

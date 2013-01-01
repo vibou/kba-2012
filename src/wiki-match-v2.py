@@ -47,9 +47,12 @@ class WikiMatch():
 
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       #db=RedisDB.exact_match_db)
-      db=RedisDB.test_exact_match_db)
+      #db=RedisDB.test_exact_match_db)
+      db=RedisDB.fuzzy_match_db)
+
   _wiki_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.wiki_match_db)
+
   _wiki_ent_list_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.wiki_ent_list_db)
 
@@ -180,6 +183,7 @@ class WikiMatch():
 
       ## verbose output
       print 'Match: %d - %s - %s - %d' %(id, org_query, stream_id, score)
+      #print '%s %s %d' %(org_query, stream_id, score)
     except:
       # Catch any unicode errors while printing to console
       # and just ignore them to avoid breaking application.

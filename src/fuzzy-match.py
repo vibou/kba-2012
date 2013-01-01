@@ -50,6 +50,7 @@ class FuzzyMatch():
   '''
   _query_hash = {}
   _org_query_hash = {}
+  _alias_query_hash = {}
 
   _fuzzy_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.fuzzy_match_db)
@@ -70,6 +71,23 @@ class FuzzyMatch():
     ## dump the query list
     for index, item in enumerate(query_list):
       print '%d\t%s' % (index, item)
+
+  def parse_alias_list(self, alias_file):
+    '''
+    parse the alisa file
+    '''
+    lines = [line.strip() for line in open(alias_file, 'r')]
+    for line in lines:
+      alias_name_list = line.split(' ')
+      if 2 == len(alias_name_list):
+        query = alias_name_list[0]
+        alias = alias_name_list[1]
+        alias = self.format_query(alias)
+
+        if not query in self._alias_query_hash:
+          self._alias_query_hash[query] = {}
+        self._alias_query_hash[query][alias] = 1
+        print 'Query: %s - Alias: [%s]' %(query, alias)
 
   def format_query(self, query):
     '''
@@ -109,25 +127,30 @@ class FuzzyMatch():
 
     return str.lower()
 
-  def fuzzy_match(self, query, doc):
+  def fuzzy_match(self, index, doc):
     '''
     Conduct fuzzy match between the query and document
     The value returned is boolean
     '''
-    query_term_list = query.split(' ')
-    matched_num = 0
-    for term in query_term_list:
-      if term.__len__() < 3:
-        continue
-      term_str = ' %s ' %( term )
-      if re.search(term_str, doc, re.I | re.M):
-        matched_num = matched_num + 1
-    query_len = len(query_term_list)
-    match_crt = query_len / 2
-    if matched_num >=match_crt:
-      return True
-    else:
-      return False
+    org_query = self._org_query_hash[index]
+    query = self._query_hash[index]
+
+    matched = False
+    query_str = ' %s ' %(query)
+    if re.search(query_str, doc, re.I | re.M):
+      matched = True
+      return matched
+
+    if not org_query in self._alias_query_hash:
+      return matched
+
+    for alias in self._alias_query_hash[org_query]:
+      alias_str = ' %s ' %(alias)
+      if re.search(alias_str, doc, re.I | re.M):
+        matched = True
+        break
+
+    return matched
 
   def process_stream_item(self, fname, stream_id, stream_data):
     '''
@@ -141,7 +164,7 @@ class FuzzyMatch():
       try:
         ## use the query entity as the regex to apply exact match
         #if re.search(query, new_stream_data, re.I | re.M):
-        if True == self.fuzzy_match(query, new_stream_data):
+        if True == self.fuzzy_match(index, new_stream_data):
           id = self._fuzzy_match_db.llen(RedisDB.ret_item_list)
           self._fuzzy_match_db.rpush(RedisDB.ret_item_list, id)
 
@@ -219,6 +242,7 @@ def main():
 
   match = FuzzyMatch()
   match.parse_query(args.query)
+  match.parse_alias_list('query/dbpedia.alias.list')
   match.parse_thift_data(args.thrift_dir)
 
 if __name__ == '__main__':
