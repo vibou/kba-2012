@@ -20,11 +20,11 @@
   <p>Relevant: {{ ret_item.rel }}</p>
   <br/>
   <p>Body: </p>
-  <div id="wrapper" style="width: 600px">{{ ret_item.stream_data }}</div>
+  <div id="wrapper" style="width: 600px">{% raw ret_item.stream_data %}</div>
 
   <script>
-    var str = $("div#wrapper").text();
-    $("div#wrapper").html(str);
+    //var str = $("div#wrapper").text();
+    //$("div#wrapper").html(str);
   </script>
 
 </body>

@@ -17,7 +17,7 @@ class RedisDB(object):
     wiki_match_db = 6
     new_wiki_match_db = 7
 
-    wiki_ent_list_db = 3
+    wiki_ent_list_db = 13
 
     test_exact_match_db = 8
 
@@ -35,6 +35,7 @@ class RedisDB(object):
     # specifications related to bootstraping
     ret_item_list = 'ret_item_list'
     wiki_ent_list = 'wiki_ent_list'
+    wiki_ent_set = 'wiki_ent_set'
 
     # mutex
     async_mutex = 'async_mutex'

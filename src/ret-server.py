@@ -65,6 +65,10 @@ class BaseHandler(tornado.web.RequestHandler):
   def _missed_docs_db(self):
     return self.application._missed_docs_db
 
+  @property
+  def _rel_ent_dist_db(self):
+    return self.application._rel_ent_dist_db
+
 class HomeHandler(BaseHandler):
   def get(self):
     url = '/wiki'
@@ -377,6 +381,30 @@ class WikiEntListHandler(BaseHandler):
 
     self.render("wiki-ent-list.html", title='KBA Wiki Ent List', ent_items=ent_items)
 
+class RelEntViewHandler(BaseHandler):
+  def get(self, id):
+    msg = 'no ret_item found'
+    self.render("error.html", msg=msg)
+    return
+
+class RelEntDistHandler(BaseHandler):
+  def get(self, ent_id):
+    keys = self._rel_ent_dist_db.hkeys(ent_id)
+    if 0 == len(keys):
+      msg = 'no ret_item found'
+      self.render("error.html", msg=msg)
+      return
+    db_item = self._rel_ent_dist_db.hmget(ent_id, keys)
+
+    dist_items = []
+    for idx, val in enumerate(db_item):
+      item = DictItem()
+      item['date'] = keys[idx]
+      item['val'] = db_item[idx]
+      dist_items.append(item)
+      line = '%s\t%s\n' %(item['date'], item['val'])
+      self.write(line)
+
 class MissedIndexHandler(BaseHandler):
   def get(self):
     num = self._missed_docs_db.llen(RedisDB.ret_item_list)
@@ -454,6 +482,8 @@ class Application(tornado.web.Application):
       (r"/eval/(\d+)", EvalItemHandler),
       (r"/missed/ret/(\d+)", MissedRetHandler),
       (r"/wiki-ent-list", WikiEntListHandler),
+      (r"/rel-ent/(\d+)", RelEntViewHandler),
+      (r"/rel-ent/dist/(\d+)", RelEntDistHandler),
     ]
 
     settings = dict(
@@ -484,6 +514,9 @@ class Application(tornado.web.Application):
 
     self._missed_docs_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.missed_docs_db)
+
+    self._rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+        db=RedisDB.rel_ent_dist_db)
 
 def main():
   tornado.options.parse_command_line()

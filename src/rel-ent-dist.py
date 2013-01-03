@@ -213,6 +213,7 @@ class WikiMatch():
       ## process data
       self.process_stream_item(ret_item['query'], ret_item['file'],
           ret_item['stream_id'], ret_item['stream_data'])
+      print '%s / %d' %(ret_id, num)
 
 def main():
   import argparse

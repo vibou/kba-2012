@@ -113,16 +113,23 @@ def wikipediaLinkHook(parser_env, namespace, body):
   wiki_url_base = 'http://en.wikipedia.org/wiki/'
   url = wiki_url_base + href
 
-  global g_wiki_ent_list_db
-  id = g_wiki_ent_list_db.llen(RedisDB.wiki_ent_list)
-  id = id + 1
-  g_wiki_ent_list_db.rpush(RedisDB.wiki_ent_list, id)
+  if href.__len__() > 50:
+    return ''
 
-  ent_item = {'id' : id}
-  ent_item['query'] = g_current_query
-  ent_item['ent'] = href
-  ent_item['url'] = url
-  g_wiki_ent_list_db.hmset(id, ent_item)
+  global g_wiki_ent_list_db
+  uniq_id = '%s-%s' %(g_current_query, href)
+  if False == g_wiki_ent_list_db.sismember(RedisDB.wiki_ent_set, uniq_id):
+    g_wiki_ent_list_db.sadd(RedisDB.wiki_ent_set, uniq_id)
+
+    id = g_wiki_ent_list_db.llen(RedisDB.wiki_ent_list)
+    id = id + 1
+    g_wiki_ent_list_db.rpush(RedisDB.wiki_ent_list, id)
+
+    ent_item = {'id' : id}
+    ent_item['query'] = g_current_query
+    ent_item['ent'] = href
+    ent_item['url'] = url
+    g_wiki_ent_list_db.hmset(id, ent_item)
 
   return '<a href="http://en.wikipedia.org/wiki/%s">%s</a>' % (href, text)
 
