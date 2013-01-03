@@ -47,6 +47,7 @@ sub main(){
 
 # load qrel data
 sub load_qrels(){
+  my $total_rel = 0;
   open QRELS, $qrels_file or die "Can't open `$qrels_file': $!\n";
   while (<QRELS>) {
     chomp;
@@ -63,9 +64,13 @@ sub load_qrels(){
     }
     if($score > 0 and $rel > 0){
       $qrel{$query}{$did} = $rel;
+      ++$total_rel;
     }
   }
   close QRELS;
+
+  #print "Total rel: $total_rel\n";
+  #die;
 }
 
 # load the data of runfile
