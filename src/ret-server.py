@@ -372,37 +372,54 @@ class WikiEntListHandler(BaseHandler):
       keys = ['id', 'query', 'ent', 'url']
       db_item = self._wiki_ent_list_db.hmget(ent_id, keys)
 
+      keys = self._rel_ent_dist_db.hkeys(ent_id)
       item = DictItem()
       item['id'] = db_item[0]
       item['query'] = db_item[1]
       item['ent'] = db_item[2]
       item['url'] = db_item[3]
+      item['num'] = len(keys)
       ent_items.append(item)
 
     self.render("wiki-ent-list.html", title='KBA Wiki Ent List', ent_items=ent_items)
 
 class RelEntViewHandler(BaseHandler):
-  def get(self, id):
-    msg = 'no ret_item found'
-    self.render("error.html", msg=msg)
-    return
+  def get(self, ent_id):
+    keys = self._rel_ent_dist_db.hkeys(ent_id)
+    if 0 == len(keys):
+      msg = 'no data found'
+      self.render("error.html", msg=msg)
+      return
+
+    db_keys = ['id', 'query', 'ent', 'url']
+    db_item = self._wiki_ent_list_db.hmget(ent_id, db_keys)
+
+    item = DictItem()
+    item['id'] = db_item[0]
+    item['query'] = db_item[1]
+    item['ent'] = db_item[2]
+    item['url'] = db_item[3]
+    item['num'] = len(keys)
+
+    self.render("rel-ent-view.html", ent_id=ent_id, ent_item=item)
 
 class RelEntDistHandler(BaseHandler):
   def get(self, ent_id):
     keys = self._rel_ent_dist_db.hkeys(ent_id)
     if 0 == len(keys):
-      msg = 'no ret_item found'
+      msg = 'no data found'
       self.render("error.html", msg=msg)
       return
+    keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
     db_item = self._rel_ent_dist_db.hmget(ent_id, keys)
 
-    dist_items = []
+    line = 'date\tclose\n'
+    self.write(line)
+
+    cumu = 0
     for idx, val in enumerate(db_item):
-      item = DictItem()
-      item['date'] = keys[idx]
-      item['val'] = db_item[idx]
-      dist_items.append(item)
-      line = '%s\t%s\n' %(item['date'], item['val'])
+      cumu += int(db_item[idx])
+      line = '%s\t%s\n' %(keys[idx], cumu)
       self.write(line)
 
 class MissedIndexHandler(BaseHandler):

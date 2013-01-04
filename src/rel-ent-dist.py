@@ -43,9 +43,9 @@ class WikiMatch():
 
   # documents which have match with the query entity
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      #db=RedisDB.exact_match_db)
+      db=RedisDB.exact_match_db)
       #db=RedisDB.test_exact_match_db)
-      db=RedisDB.fuzzy_match_db)
+      #db=RedisDB.fuzzy_match_db)
 
   # the relevant entities of query entities
   _wiki_ent_list_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
@@ -168,8 +168,8 @@ class WikiMatch():
       return
 
     # for debug purpose, we only consider one query only
-    if not 0 == qid:
-      return
+    #if not 0 == qid:
+      #return
 
     new_stream_data = self.sanitize(stream_data)
     query = self._query_hash[qid]
