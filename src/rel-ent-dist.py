@@ -42,7 +42,7 @@ class WikiMatch():
   _wiki_ent_hash = None
 
   #_ret_url_prefix = 'train'
-  _ret_url_prefix = 'wiki'
+  _ret_url_prefix = 'test'
 
   # documents which have match with the query entity
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
