@@ -138,13 +138,27 @@ class TrainRetHandler(BaseHandler):
     ret_item['file'] = the_ret_item[2]
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['score'] = the_ret_item[4]
-    ret_item['stream_data'] = the_ret_item[5]
+    ret_item['stream_data'] = self.raw2html(the_ret_item[5])
 
     list = the_ret_item[3].split('-')
     epoch = list[0]
     ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("ret-item.html", title='ret_item', ret_item=ret_item)
+
+  '''
+  Transfer the raw data to HTML
+  Basically the goal is to make sure each paragraph is embedded in <p></p>
+  '''
+  def raw2html(self, raw):
+    sentences = raw.split('\n')
+    html = ""
+    for sent in sentences:
+      sent = "<p>" + sent + "</p>\n"
+      html += sent
+
+    return html
+
 
 class TestRetHandler(BaseHandler):
   def get(self, ret_id):
@@ -391,6 +405,7 @@ class RelEntViewHandler(BaseHandler):
       self.render("error.html", msg=msg)
       return
 
+    ## retrieve the basic information of the relevant entity
     db_keys = ['id', 'query', 'ent', 'url']
     db_item = self._wiki_ent_list_db.hmget(ent_id, db_keys)
 
@@ -401,7 +416,31 @@ class RelEntViewHandler(BaseHandler):
     item['url'] = db_item[3]
     item['num'] = len(keys)
 
-    self.render("rel-ent-view.html", ent_id=ent_id, ent_item=item)
+    ## retrieve the URL list of the relevant document
+    list_name = '%s-list' %(ent_id)
+    num = self._rel_ent_dist_db.llen(list_name)
+    ret_item_list = self._rel_ent_dist_db.lrange(list_name, 0, num)
+    ret_items = []
+    for store_item in ret_item_list:
+      list = store_item.split(':')
+      stream_id = list[0]
+      ret_url = list[1]
+      list = stream_id.split('-')
+      epoch = list[0]
+      time = datetime.datetime.utcfromtimestamp(float(epoch))
+      date = '%d-%.2d-%.2d' %(time.year, time.month, time.day)
+
+      ret_item = DictItem()
+      ret_item['date'] = date
+      ret_item['stream_id'] = stream_id
+      ret_item['url'] = ret_url
+      ret_items.append(ret_item)
+    ## sort it by date
+    ## thanks to http://stackoverflow.com/q/2589479
+    ret_items.sort(key=lambda x: datetime.datetime.strptime(x['date'], '%Y-%m-%d'))
+
+    self.render("rel-ent-view.html", ent_id=ent_id, ent_item=item,
+        ret_items=ret_items)
 
 class RelEntDistHandler(BaseHandler):
   def get(self, ent_id):
@@ -512,8 +551,8 @@ class Application(tornado.web.Application):
 
     # global database connections for all handles
     self._exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-        #db=RedisDB.exact_match_db)
-        db=RedisDB.fuzzy_match_db)
+        db=RedisDB.exact_match_db)
+        #db=RedisDB.fuzzy_match_db)
 
     self._eval_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.eval_db)

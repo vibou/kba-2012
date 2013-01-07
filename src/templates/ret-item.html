@@ -13,6 +13,6 @@
   <p>Score: {{ ret_item.score }}
   <br/>
   <p>Body: </p>
-  <p style="width: 600px">{{ escape(ret_item.stream_data) }}</p>
+  <div id="wrapper" style="width: 600px">{% raw ret_item.stream_data %}</div>
 </body>
 </html>

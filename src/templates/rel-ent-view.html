@@ -32,6 +32,16 @@ a, p{
 <p><a href="/wiki-ent-list"><- Return to list</a></p>
 <p>{{ent_item.query }} - <a href="{{ent_item.url}}">{{ent_item.ent}}</a> ({{ent_item.num}})</p>
 <div id="canvas"></div>
+<div id="ret_item_list"></div>
+  <p>{{ len(ret_items) }} ret records in total.</p>
+  <ul>
+    {% for ret_item in ret_items %}
+    <li>
+      {{ ret_item.date }} - 
+        <a href="{{ ret_item.url }}">{{ ret_item.stream_id }}</a>
+    </li>
+    {% end %}
+  </ul>
 </body>
 
 <script src="http://d3js.org/d3.v3.min.js"></script>

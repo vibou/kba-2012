@@ -41,11 +41,14 @@ class WikiMatch():
   _query2id_hash = {}
   _wiki_ent_hash = None
 
+  #_ret_url_prefix = 'train'
+  _ret_url_prefix = 'wiki'
+
   # documents which have match with the query entity
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.exact_match_db)
+      #db=RedisDB.exact_match_db)
       #db=RedisDB.test_exact_match_db)
-      #db=RedisDB.fuzzy_match_db)
+      db=RedisDB.fuzzy_match_db)
 
   # the relevant entities of query entities
   _wiki_ent_list_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
@@ -127,7 +130,7 @@ class WikiMatch():
       ent_str = '%s:%s' %(id, ent)
       self._wiki_ent_hash[query].append(ent_str)
 
-  def parse_query_doc(self, qid, did, doc):
+  def parse_query_doc(self, qid, ret_id, did, doc):
     '''
     estimate the occurrences of relevant entities of one query in the document
     '''
@@ -148,6 +151,14 @@ class WikiMatch():
           ## change to count match once to count the total number of matches
           match_list = re.findall(ent, doc, re.I | re.M)
           matched_num = len(match_list)
+
+          ## save the URL of the document in the page
+          ret_url = '/%s/ret/%s' %(self._ret_url_prefix, ret_id)
+          list_name = '%s-list' %(ent_id)
+          store_item = '%s:%s' %(did, ret_url)
+          self._rel_ent_dist_db.rpush(list_name, store_item)
+
+          ## increse the matched number
           if self._rel_ent_dist_db.hexists(ent_id, date):
             self._rel_ent_dist_db.hincrby(ent_id, date, matched_num)
           else:
@@ -155,7 +166,7 @@ class WikiMatch():
     else:
       print 'I can not find the query [%s] in self._wiki_ent_hash' %org_query
 
-  def process_stream_item(self, org_query, fname, stream_id, stream_data):
+  def process_stream_item(self, org_query, ret_id, stream_id, stream_data):
     '''
     process the streaming item: applying exact match for each of the query
     entity
@@ -175,7 +186,7 @@ class WikiMatch():
     query = self._query_hash[qid]
 
     try:
-      score = self.parse_query_doc(qid, stream_id, new_stream_data)
+      self.parse_query_doc(qid, ret_id, stream_id, new_stream_data)
 
     except:
       # Catch any unicode errors while printing to console
@@ -211,7 +222,7 @@ class WikiMatch():
       ret_item['stream_data'] = the_ret_item[4]
 
       ## process data
-      self.process_stream_item(ret_item['query'], ret_item['file'],
+      self.process_stream_item(ret_item['query'], ret_item['id'],
           ret_item['stream_id'], ret_item['stream_data'])
       print '%s / %d' %(ret_id, num)
 

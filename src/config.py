@@ -25,7 +25,8 @@ class RedisDB(object):
 
     missed_docs_db = 10
 
-    rel_ent_dist_db = 12
+    #rel_ent_dist_db = 12
+    rel_ent_dist_db = 14
 
     # specifications of hash tables
     # the to-be-processed tweet list
