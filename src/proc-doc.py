@@ -43,7 +43,10 @@ class ProcDoc():
       db=RedisDB.fuzzy_match_db)
 
   _filtered_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.filtered_test__db)
+      db=RedisDB.filtered_test_db)
+
+  # the pre-defined threshold of the valid paragraphs
+  _VALID_PARAG_LEN_ = 20
 
   def sanitize(self, str):
     '''
@@ -59,21 +62,28 @@ class ProcDoc():
 
     return str.lower()
 
-  def calc_score(self, doc):
+  def remove_noise(self, doc):
     '''
     Remove the noise parts in the document, which include headers, sidebar,
     footers, etc.
 
     The heuristics applied here are:
     * those noise items are relative short, e.g. less than 20 terms
-    * no period mark (.) is in the items
+    * no period (.) is in the items
     '''
+
+    new_doc = ""
     items = doc.split('\n')
+    new_items = []
     for item in items:
       # first, estimate the length of this item by terms
       sanitized = self.sanitize(item)
-      num_term = len(sanitize.split(' '))
+      num_terms = len(sanitized.split(' '))
+      if num_terms > self._VALID_PARAG_LEN_:
+        new_items.append(item)
 
+      # then, count how many periods (.) in the item
+      new_doc = '\n'.join(new_items)
     return new_doc
 
   def process_stream_item(self, org_query, fname, stream_id, stream_data):
@@ -83,7 +93,7 @@ class ProcDoc():
     '''
 
     try:
-      new_stream_data = self.remove_noise(qid, stream_data)
+      new_stream_data = self.remove_noise(stream_data)
 
       return new_stream_data
     except:
@@ -165,7 +175,6 @@ class ProcDoc():
 def main():
   import argparse
   parser = argparse.ArgumentParser(usage=__doc__)
-  parser.add_argument('query')
   args = parser.parse_args()
 
   proc = ProcDoc()
