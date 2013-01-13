@@ -6,7 +6,7 @@
 
 class RedisDB(object):
     host = "localhost"
-    port = 6379
+    port = 6380
 
     # specifications of which DB to use for different purposes
     eval_db = 0
@@ -27,6 +27,9 @@ class RedisDB(object):
 
     #rel_ent_dist_db = 12
     rel_ent_dist_db = 14
+
+    filtered_train_db = 17
+    filtered_test_db = 18
 
     # specifications of hash tables
     # the to-be-processed tweet list

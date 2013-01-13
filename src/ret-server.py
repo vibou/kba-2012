@@ -213,7 +213,10 @@ class WikiIndexHandler(BaseHandler):
       ret_item = DictItem()
       ret_item['id'] = the_ret_item[0]
       ret_item['query'] = the_ret_item[1]
-      ret_item['file'] = the_ret_item[2]
+
+      file_list = the_ret_item[2].split('.')
+      ret_item['file'] = file_list[0]
+
       ret_item['stream_id'] = the_ret_item[3]
       ret_item['score'] = the_ret_item[4]
       ret_item['rel'] = the_ret_item[5]
