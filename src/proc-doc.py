@@ -157,7 +157,7 @@ class ProcDoc():
     Do testing of parse_data()
     '''
 
-    ret_id = 8221
+    ret_id = 10900
     ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
     the_ret_item = self._source_db.hmget(ret_id, ret_item_keys)
 
@@ -184,8 +184,8 @@ def main():
   args = parser.parse_args()
 
   proc = ProcDoc()
-  proc.test_parse_data()
-  #proc.parse_data()
+  #proc.test_parse_data()
+  proc.parse_data()
 
 if __name__ == '__main__':
   try:

@@ -333,8 +333,8 @@ def main():
 
   match = WikiMatch()
   match.parse_query(args.query)
-  match.load_annotation(args.annotation, False, False)
   match.load_wiki_ent()
+  match.load_annotation(args.annotation, False, False)
   match.parse_data()
 
 if __name__ == '__main__':

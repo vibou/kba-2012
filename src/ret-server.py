@@ -505,6 +505,7 @@ class RelEntViewHandler(BaseHandler):
       list = store_item.split(':')
       stream_id = list[0]
       ret_url = list[1]
+      rel = list[2]
       list = stream_id.split('-')
       epoch = list[0]
       time = datetime.datetime.utcfromtimestamp(float(epoch))
@@ -514,6 +515,7 @@ class RelEntViewHandler(BaseHandler):
       ret_item['date'] = date
       ret_item['stream_id'] = stream_id
       ret_item['url'] = ret_url
+      ret_item['rel'] = rel
       ret_items.append(ret_item)
     ## sort it by date
     ## thanks to http://stackoverflow.com/q/2589479
@@ -529,6 +531,7 @@ class RelEntDistHandler(BaseHandler):
       msg = 'no data found'
       self.render("error.html", msg=msg)
       return
+    ## sort the keys by date: http://stackoverflow.com/q/2589479
     keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
     db_item = self._rel_ent_dist_db.hmget(ent_id, keys)
 

@@ -38,7 +38,8 @@ a, p{
     {% for ret_item in ret_items %}
     <li>
       {{ ret_item.date }} - 
-        <a href="{{ ret_item.url }}">{{ ret_item.stream_id }}</a>
+      <a href="{{ ret_item.url }}">{{ ret_item.stream_id }}</a> -
+      {{ ret_item.rel }}
     </li>
     {% end %}
   </ul>

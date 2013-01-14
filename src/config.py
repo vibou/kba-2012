@@ -25,8 +25,8 @@ class RedisDB(object):
 
     missed_docs_db = 10
 
-    #rel_ent_dist_db = 12
-    rel_ent_dist_db = 14
+    rel_ent_dist_db = 12
+    #rel_ent_dist_db = 14
 
     filtered_train_db = 17
     filtered_test_db = 18

@@ -23,6 +23,7 @@ from collections import defaultdict
 from cStringIO import StringIO
 
 import redis
+import csv
 from config import RedisDB
 
 QUERY_ENT_MATCH_SCORE = 100
@@ -40,6 +41,8 @@ class WikiMatch():
   _org_query_hash = {}
   _query2id_hash = {}
   _wiki_ent_hash = None
+
+  _annotation = dict()
 
   #_ret_url_prefix = 'train'
   _ret_url_prefix = 'test'
@@ -94,6 +97,50 @@ class WikiMatch():
 
     return query.lower()
 
+  def load_annotation (self, path_to_annotation_file, include_relevant, include_neutral):
+    '''
+    Loads the annotation file into a dict
+
+    path_to_annotation_file: string filesystem path to the annotation file
+    include_relevant: true to include docs marked relevant and central
+    '''
+    annotation_file = csv.reader(open(path_to_annotation_file, 'r'), delimiter='\t')
+
+    for row in annotation_file:
+      ## Skip comments
+      if row[0][0] == "#":
+        continue
+
+      stream_id = row[2]
+      urlname = row[3]
+      rating = int(row[5])
+
+      if include_neutral:
+        thresh = 0
+      elif include_relevant:
+        thresh = 1
+      else:
+        thresh = 2
+
+      ## Add the stream_id and urlname to a hashed dictionary
+      ## 0 means that its not central 1 means that it is central
+      '''
+      if (stream_id, urlname) in self._annotation:
+        ## 2 means the annotators gave it a yes for centrality
+        if rating < thresh:
+          self._annotation[(stream_id, urlname)] = False
+      else:
+        self._annotation[(stream_id, urlname)] = rating >= thresh
+      '''
+
+      ## here we kept all the ratings as what they are in the annotation list
+      if (stream_id, urlname) in self._annotation:
+        ## old rating which is greater than newer one will be overwritten
+        if rating < self._annotation[(stream_id, urlname)]:
+          self._annotation[(stream_id, urlname)] = rating
+      else:
+        self._annotation[(stream_id, urlname)] = rating
+
   def sanitize(self, str):
     '''
     sanitize the streaming item
@@ -130,7 +177,7 @@ class WikiMatch():
       ent_str = '%s:%s' %(id, ent)
       self._wiki_ent_hash[query].append(ent_str)
 
-  def parse_query_doc(self, qid, ret_id, did, doc):
+  def parse_query_doc(self, qid, ret_id, did, doc, rel):
     '''
     estimate the occurrences of relevant entities of one query in the document
     '''
@@ -155,7 +202,7 @@ class WikiMatch():
           ## save the URL of the document in the page
           ret_url = '/%s/ret/%s' %(self._ret_url_prefix, ret_id)
           list_name = '%s-list' %(ent_id)
-          store_item = '%s:%s' %(did, ret_url)
+          store_item = '%s:%s:%s' %(did, ret_url, rel)
           self._rel_ent_dist_db.rpush(list_name, store_item)
 
           ## increse the matched number
@@ -166,7 +213,7 @@ class WikiMatch():
     else:
       print 'I can not find the query [%s] in self._wiki_ent_hash' %org_query
 
-  def process_stream_item(self, org_query, ret_id, stream_id, stream_data):
+  def process_stream_item(self, org_query, ret_id, stream_id, stream_data, rel):
     '''
     process the streaming item: applying exact match for each of the query
     entity
@@ -186,7 +233,7 @@ class WikiMatch():
     query = self._query_hash[qid]
 
     try:
-      self.parse_query_doc(qid, ret_id, stream_id, new_stream_data)
+      self.parse_query_doc(qid, ret_id, stream_id, new_stream_data, rel)
 
     except:
       # Catch any unicode errors while printing to console
@@ -211,6 +258,8 @@ class WikiMatch():
     ret_item_list = self._exact_match_db.lrange(RedisDB.ret_item_list, 0, num)
     ret_items = []
     for ret_id in ret_item_list:
+      print '%s / %d' %(ret_id, num)
+
       ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
       the_ret_item = self._exact_match_db.hmget(ret_id, ret_item_keys)
 
@@ -221,20 +270,30 @@ class WikiMatch():
       ret_item['stream_id'] = the_ret_item[3]
       ret_item['stream_data'] = the_ret_item[4]
 
+      #Show the annotation of the stream_id-query pair as what is is
+      in_annotation_set = (ret_item['stream_id'], ret_item['query']) in self._annotation
+      ## In the annotation set and relevant
+      if not in_annotation_set:
+        continue
+      if not self._annotation[(ret_item['stream_id'], ret_item['query'])] > 0:
+        continue
+
       ## process data
+      rel = self._annotation[(ret_item['stream_id'], ret_item['query'])]
       self.process_stream_item(ret_item['query'], ret_item['id'],
-          ret_item['stream_id'], ret_item['stream_data'])
-      print '%s / %d' %(ret_id, num)
+          ret_item['stream_id'], ret_item['stream_data'], rel)
 
 def main():
   import argparse
   parser = argparse.ArgumentParser(usage=__doc__)
   parser.add_argument('query')
+  parser.add_argument('annotation')
   args = parser.parse_args()
 
   match = WikiMatch()
   match.parse_query(args.query)
   match.load_wiki_ent()
+  match.load_annotation(args.annotation, False, False)
   match.parse_data()
 
 if __name__ == '__main__':

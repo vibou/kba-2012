@@ -31,7 +31,7 @@ my %rel_run;
 
 # the threshold of score for the relevant documents
 #my $REL_THRED = 101;
-my $REL_THRED = 99;
+my $REL_THRED = 100;
 
 main();
 
