@@ -107,13 +107,16 @@ sub pr_eval(){
 
     my $precision = $rel_ret / $num_ret;
     my $recall = $rel_ret / $num_rel;
-    my $f1 = 2 * $precision * $recall / ($precision + $recall);
-    $cum{$query}{P} = $precision;
-    $cum{$query}{R} = $recall;
+    my $f1 = 0;
+    if(0 < $precision + $recall){
+      $f1 = 2 * $precision * $recall / ($precision + $recall);
+    }
+    $cum{$query}{precision} = $precision;
+    $cum{$query}{recall} = $recall;
     $cum{$query}{F1} = $f1;
 
-    printf "$query\tprec\t%6.3f\n", $precision if $verbose;
-    printf "$query\trecall\t%6.3f\n", $recall if $verbose;
+    #printf "$query\tprec\t%6.3f\n", $precision if $verbose;
+    #printf "$query\trecall\t%6.3f\n", $recall if $verbose;
 
     $cum{P} += $precision;
     $cum{R} += $recall;
@@ -200,18 +203,18 @@ sub ndcg_eval {
 
 sub means() {
   if($verbose){
-    for my $topic(sort {$a<=>$b} keys %qrel){
+    for my $topic(sort {$a cmp $b} keys %qrel){
       if(!defined $run{$topic}){
         my $p = 0;
         my $r = 0;
         my $f1 = 0;
         my $map = 0;
         my $ndcg = 0;
-        printf "%d\tPrec\t%6.3f\n", $topic, $p;
-        printf "%d\tRecal\t%6.3f\n", $topic, $r;
-        printf "%d\tF1\t%6.3f\n", $topic, $f1;
-        printf "%d\tMAP\t%6.3f\n", $topic, $map;
-        printf "%d\tnDCG\t%6.3f\n", $topic, $ndcg;
+        printf "%s\tPrec\t%6.3f\n", $topic, $p;
+        printf "%s\tRecall\t%6.3f\n", $topic, $r;
+        printf "%s\tF1\t%6.3f\n", $topic, $f1;
+        printf "%s\tMAP\t%6.3f\n", $topic, $map;
+        printf "%s\tnDCG\t%6.3f\n", $topic, $ndcg;
         next;
       }
       my $p = $cum{$topic}{precision};
@@ -219,11 +222,11 @@ sub means() {
       my $f1 = $cum{$topic}{F1};
       my $map = $cum{$topic}{MAP};
       my $ndcg = $cum{$topic}{nDCG};
-      printf "%d\tPrec\t%6.3f\n", $topic, $p;
-      printf "%d\tRecal\t%6.3f\n", $topic, $r;
-      printf "%d\tF1\t%6.3f\n", $topic, $f1;
-      printf "%d\tMAP\t%6.3f\n", $topic, $map;
-      printf "%d\tnDCG\t%6.3f\n", $topic, $ndcg;
+      printf "%s\tPrec\t%6.3f\n", $topic, $p;
+      printf "%s\tRecall\t%6.3f\n", $topic, $r;
+      printf "%s\tF1\t%6.3f\n", $topic, $f1;
+      printf "%s\tMAP\t%6.3f\n", $topic, $map;
+      printf "%s\tnDCG\t%6.3f\n", $topic, $ndcg;
     }
   }
 

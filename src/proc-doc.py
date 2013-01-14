@@ -47,7 +47,7 @@ class ProcDoc():
 
   # the pre-defined threshold of the valid paragraphs
   _VALID_PARAG_LEN_ = 30
-  _VALID_PERIOD_NUM_ = 3
+  _VALID_PERIOD_NUM_ = 1
 
   def sanitize(self, str):
     '''
@@ -73,7 +73,7 @@ class ProcDoc():
     * no period (.) is in the items
     '''
 
-    new_doc = ""
+    new_doc = ''
     items = doc.split('\n')
     new_items = []
     for item in items:
@@ -115,7 +115,6 @@ class ProcDoc():
       print '-'*60
       traceback.print_exc(file=sys.stdout)
       print '-'*60
-      pass
 
   def parse_data(self):
     '''
@@ -130,7 +129,7 @@ class ProcDoc():
     ret_item_list = self._source_db.lrange(RedisDB.ret_item_list, 0, num)
     ret_items = []
     for ret_id in ret_item_list:
-      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
+      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data', 'score']
       the_ret_item = self._source_db.hmget(ret_id, ret_item_keys)
 
       ret_item = {}
@@ -139,31 +138,26 @@ class ProcDoc():
       ret_item['file'] = the_ret_item[2]
       ret_item['stream_id'] = the_ret_item[3]
       ret_item['stream_data'] = the_ret_item[4]
+      ret_item['score'] = the_ret_item[5]
 
       ## process data
       filtered_doc = self.process_stream_item(ret_item['query'], ret_item['file'],
           ret_item['stream_id'], ret_item['stream_data'])
+      print 'Process %s' %(ret_id)
 
       ## save the document to database then
+      id = self._filtered_db.llen(RedisDB.ret_item_list)
+      self._filtered_db.rpush(RedisDB.ret_item_list, id)
 
-      id = self._wiki_match_db.llen(RedisDB.ret_item_list)
-      #self._wiki_match_db.rpush(RedisDB.ret_item_list, id)
-
-      ## create a hash record
-      ret_item = {'id' : id}
-      ret_item['query'] = org_query
-      ret_item['file'] = fname
-      ret_item['stream_id'] = stream_id
-      ret_item['stream_data'] = stream_data
-      ret_item['score'] = score
-      #self._wiki_match_db.hmset(id, ret_item)
+      ret_item['stream_data'] = filtered_doc
+      self._filtered_db.hmset(id, ret_item)
 
   def test_parse_data(self):
     '''
     Do testing of parse_data()
     '''
 
-    ret_id = 22988
+    ret_id = 8221
     ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
     the_ret_item = self._source_db.hmget(ret_id, ret_item_keys)
 
@@ -191,6 +185,7 @@ def main():
 
   proc = ProcDoc()
   proc.test_parse_data()
+  #proc.parse_data()
 
 if __name__ == '__main__':
   try:

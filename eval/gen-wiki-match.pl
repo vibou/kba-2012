@@ -31,7 +31,7 @@ my %rel_run;
 
 # the threshold of score for the relevant documents
 #my $REL_THRED = 101;
-my $REL_THRED = 102;
+my $REL_THRED = 99;
 
 main();
 
@@ -39,7 +39,7 @@ sub main(){
   load_qrels();
   load_run();
   gen_result();
-  #save_results();
+  save_results();
 }
 
 # load qrel data
@@ -87,14 +87,14 @@ sub gen_result(){
       $sum_score += $score;
       ++$num_score;
     }
-    my $avg_score = $sum_score / $num_score;
-    printf "%32s\t%.3f\n", $query, $avg_score;
-    $sum_all += $avg_score;
+    #my $avg_score = $sum_score / $num_score;
+    #printf "%32s\t%.3f\n", $query, $avg_score;
+    #$sum_all += $avg_score;
     ++$num_all;
   }
-  my $query = "all";
-  my $avg_score = $sum_all / $num_all;
-  printf "%32s\t%.3f\n", $query, $avg_score;
+  #my $query = "all";
+  #my $avg_score = $sum_all / $num_all;
+  #printf "%32s\t%.3f\n", $query, $avg_score;
 }
 
 #save the results
