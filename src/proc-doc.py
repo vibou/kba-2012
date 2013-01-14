@@ -46,7 +46,8 @@ class ProcDoc():
       db=RedisDB.filtered_test_db)
 
   # the pre-defined threshold of the valid paragraphs
-  _VALID_PARAG_LEN_ = 20
+  _VALID_PARAG_LEN_ = 30
+  _VALID_PERIOD_NUM_ = 3
 
   def sanitize(self, str):
     '''
@@ -77,13 +78,24 @@ class ProcDoc():
     new_items = []
     for item in items:
       # first, estimate the length of this item by terms
+      # and remove those which are shorter than the threshold
       sanitized = self.sanitize(item)
       num_terms = len(sanitized.split(' '))
-      if num_terms > self._VALID_PARAG_LEN_:
-        new_items.append(item)
+      if num_terms < self._VALID_PARAG_LEN_:
+        continue
 
       # then, count how many periods (.) in the item
-      new_doc = '\n'.join(new_items)
+      # and remove those with less than the threshold
+      if re.search('\.', item, re.I | re.M):
+        match_list = re.findall('\.', item, re.I | re.M)
+        num_match = len(match_list)
+        if num_match < self._VALID_PERIOD_NUM_:
+          continue
+
+      # now the item is qualified to be kept
+      new_items.append(item)
+
+    new_doc = '\n'.join(new_items)
     return new_doc
 
   def process_stream_item(self, org_query, fname, stream_id, stream_data):
@@ -151,7 +163,7 @@ class ProcDoc():
     Do testing of parse_data()
     '''
 
-    ret_id = 32104
+    ret_id = 22988
     ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
     the_ret_item = self._source_db.hmget(ret_id, ret_item_keys)
 
