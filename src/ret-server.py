@@ -28,6 +28,18 @@ define("port", default=7777, help="run on the given port", type=int)
 
 corpus_dir = './corpus/cleansed'
 
+'''
+Transfer the raw data to HTML
+Basically the goal is to make sure each paragraph is embedded in <p></p>
+'''
+def raw2html(raw):
+  sentences = raw.split('\n')
+  html = ""
+  for sent in sentences:
+    sent = "<p>" + sent + "</p>\n"
+    html += sent
+  return html
+
 class DictItem(dict):
   """
   A dict that allows for object-like property access syntax.
@@ -166,26 +178,13 @@ class TrainRetHandler(BaseHandler):
     ret_item['file'] = the_ret_item[2]
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['score'] = the_ret_item[4]
-    ret_item['stream_data'] = self.raw2html(the_ret_item[5])
+    ret_item['stream_data'] = raw2html(the_ret_item[5])
 
     list = the_ret_item[3].split('-')
     epoch = list[0]
     ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("ret-item.html", title='ret_item', ret_item=ret_item)
-
-  '''
-  Transfer the raw data to HTML
-  Basically the goal is to make sure each paragraph is embedded in <p></p>
-  '''
-  def raw2html(self, raw):
-    sentences = raw.split('\n')
-    html = ""
-    for sent in sentences:
-      sent = "<p>" + sent + "</p>\n"
-      html += sent
-
-    return html
 
 class TestRetHandler(BaseHandler):
   def get(self, ret_id):
@@ -203,26 +202,13 @@ class TestRetHandler(BaseHandler):
     ret_item['file'] = the_ret_item[2]
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['score'] = the_ret_item[4]
-    ret_item['stream_data'] = self.raw2html(the_ret_item[5])
+    ret_item['stream_data'] = raw2html(the_ret_item[5])
 
     list = the_ret_item[3].split('-')
     epoch = list[0]
     ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("ret-item.html", title='ret_item', ret_item=ret_item)
-
-  '''
-  Transfer the raw data to HTML
-  Basically the goal is to make sure each paragraph is embedded in <p></p>
-  '''
-  def raw2html(self, raw):
-    sentences = raw.split('\n')
-    html = ""
-    for sent in sentences:
-      sent = "<p>" + sent + "</p>\n"
-      html += sent
-
-    return html
 
 class FilteredRetHandler(BaseHandler):
   def get(self, ret_id):
@@ -240,26 +226,13 @@ class FilteredRetHandler(BaseHandler):
     ret_item['file'] = the_ret_item[2]
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['score'] = the_ret_item[4]
-    ret_item['stream_data'] = self.raw2html(the_ret_item[5])
+    ret_item['stream_data'] = raw2html(the_ret_item[5])
 
     list = the_ret_item[3].split('-')
     epoch = list[0]
     ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("ret-item.html", title='ret_item', ret_item=ret_item)
-
-  '''
-  Transfer the raw data to HTML
-  Basically the goal is to make sure each paragraph is embedded in <p></p>
-  '''
-  def raw2html(self, raw):
-    sentences = raw.split('\n')
-    html = ""
-    for sent in sentences:
-      sent = "<p>" + sent + "</p>\n"
-      html += sent
-
-    return html
 
 class WikiIndexHandler(BaseHandler):
   def get(self):
@@ -306,26 +279,13 @@ class WikiRetHandler(BaseHandler):
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['score'] = the_ret_item[4]
     ret_item['rel'] = the_ret_item[5]
-    ret_item['stream_data'] = self.raw2html(the_ret_item[6])
+    ret_item['stream_data'] = raw2html(the_ret_item[6])
 
     list = the_ret_item[3].split('-')
     epoch = list[0]
     ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("wiki-ret-item.html", title='ret_item', ret_item=ret_item)
-
-  '''
-  Transfer the raw data to HTML
-  Basically the goal is to make sure each paragraph is embedded in <p></p>
-  '''
-  def raw2html(self, raw):
-    sentences = raw.split('\n')
-    html = ""
-    for sent in sentences:
-      sent = "<p>" + sent + "</p>\n"
-      html += sent
-
-    return html
 
 class NewWikiIndexHandler(BaseHandler):
   def get(self):
@@ -382,19 +342,6 @@ class NewWikiRetHandler(BaseHandler):
     self.render("wiki-ret-item.html", title='ret_item', ret_item=ret_item)
     '''
 
-  '''
-  Transfer the raw data to HTML
-  Basically the goal is to make sure each paragraph is embedded in <p></p>
-  '''
-  def raw2html(self, raw):
-    sentences = raw.split('\n')
-    html = ""
-    for sent in sentences:
-      sent = "<p>" + sent + "</p>\n"
-      html += sent
-
-    return html
-
 class EvalHandler(BaseHandler):
   def get(self):
     num = self._eval_db.llen(RedisDB.ret_item_list)
@@ -442,7 +389,7 @@ class EvalItemHandler(BaseHandler):
     ret_item['file'] = the_ret_item[2]
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['score'] = the_ret_item[4]
-    ret_item['stream_data'] = the_ret_item[5]
+    ret_item['stream_data'] = raw2html(the_ret_item[5])
     ret_item['judge1'] = the_ret_item[6]
     ret_item['judge2'] = the_ret_item[7]
 
@@ -583,26 +530,13 @@ class MissedRetHandler(BaseHandler):
     ret_item['file'] = the_ret_item[2]
     ret_item['stream_id'] = the_ret_item[3]
     ret_item['rating'] = the_ret_item[4]
-    ret_item['stream_data'] = self.raw2html(the_ret_item[5])
+    ret_item['stream_data'] = raw2html(the_ret_item[5])
 
     list = the_ret_item[3].split('-')
     epoch = list[0]
     ret_item['time'] = datetime.datetime.utcfromtimestamp(float(epoch)).ctime()
 
     self.render("missed-item.html", title='ret_item', ret_item=ret_item)
-
-  '''
-  Transfer the raw data to HTML
-  Basically the goal is to make sure each paragraph is embedded in <p></p>
-  '''
-  def raw2html(self, raw):
-    sentences = raw.split('\n')
-    html = ""
-    for sent in sentences:
-      sent = "<p>" + sent + "</p>\n"
-      html += sent
-
-    return html
 
 class Application(tornado.web.Application):
   def __init__(self):

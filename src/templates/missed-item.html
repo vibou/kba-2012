@@ -5,10 +5,10 @@
   span.qent { color: blue; font-size: 25px;}
   span.rent { color: red;  font-size: 25px;}
   </style>
-  <script src="http://code.jquery.com/jquery-latest.js"></script>
 </head>
 
-<body style="font-family:Monaco, monospace; font-size:80%;">
+<body style="font-family:sans-serif;">
+  <div style="background:#EFEFEF no-repeat scroll; margin: 30px 10px;">
   <p>stream_id: {{ ret_item.stream_id }}</p>
   <br/>
   <p>file: {{ ret_item.file }}</p>
@@ -19,13 +19,9 @@
   <br/>
   <p>Rating: {{ ret_item.rating }}</p>
   <br/>
+  </div>
   <p>Body: </p>
-  <div id="wrapper" style="width: 600px">{{ ret_item.stream_data }}</div>
-
-  <script>
-    var str = $("div#wrapper").text();
-    $("div#wrapper").html(str);
-  </script>
+  <div id="wrapper" style="width: 600px">{% raw ret_item.stream_data %}</div>
 
 </body>
 </html>

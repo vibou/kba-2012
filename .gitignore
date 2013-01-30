@@ -16,3 +16,7 @@ run/
 submit/
 backup/
 rumor/
+
+indri/
+indri-*
+qrels/

@@ -3,7 +3,8 @@
   <title>{{ title }}</title>
 </head>
 
-<body style="font-family:Monaco, monospace; font-size:80%;">
+<body style="font-family:sans-serif;">
+  <div style="background:#EFEFEF no-repeat scroll; margin: 30px 10px;">
   <p>stream_id: {{ ret_item.stream_id }}</p>
   <br/>
   <p>Query: {{ ret_item.query }}</p>
@@ -14,7 +15,8 @@
   <br/>
   <p>Judge2: {{ ret_item.judge2 }}
   <br/>
+  </div>
   <p>Body: </p>
-  <p style="width: 600px">{{ escape(ret_item.stream_data) }}</p>
+  <div id="wrapper" style="width: 600px">{% raw ret_item.stream_data %}</div>
 </body>
 </html>
