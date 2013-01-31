@@ -212,12 +212,15 @@ class WikiMatch():
     ## first, calculate it with the query entity
     ## use the query entity as the regex to apply exact match
     match = re.search(query, doc, re.I | re.M)
+    doc = unicode(doc, errors='ignore')
     if match:
       score = score + QUERY_ENT_MATCH_SCORE
       query_span = "<span class=\"qent\">" + query + "</span>"
-      query_regex = ur'%s' %( query )
+      #query_regex = ur'%s' %( query )
+      query_regex = r'%s' %( query )
       replacer = re.compile(query_regex, re.I | re.M)
-      doc = replacer.sub(query_span, doc.decode('unicode-escape'))
+      #doc = replacer.sub(query_span, doc.decode('unicode-escape'))
+      doc = replacer.sub(query_span, doc)
 
     if org_query in self._wiki_ent_hash:
       for ent in self._wiki_ent_hash[org_query]:
@@ -295,7 +298,7 @@ class WikiMatch():
       print '-'*60
       traceback.print_exc(file=sys.stdout)
       print '-'*60
-      #sys.exit(-1)
+      sys.exit(-1)
 
   def parse_data(self):
     '''
