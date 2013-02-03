@@ -161,7 +161,7 @@ class WikiMatch():
     ent_items = []
 
     ## initialize the dictionary with list as elements
-    ## see http://stackoverflow.com/questions/960733/python-creating-a-dictionary-of-lists
+    ## http://stackoverflow.com/q/960733
     self._wiki_ent_hash = defaultdict(list)
     for ent_id in ent_item_list:
       keys = ['id', 'query', 'ent', 'url']

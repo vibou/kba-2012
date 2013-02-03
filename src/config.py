@@ -31,6 +31,8 @@ class RedisDB(object):
     filtered_train_db = 17
     filtered_test_db = 18
 
+    wiki_ent_dist_db = 20
+
     # specifications of hash tables
     # the to-be-processed tweet list
     raw_query_list = 'raw_query_list'
