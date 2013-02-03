@@ -186,9 +186,10 @@ class WikiMatch():
 
     if org_query in self._wiki_ent_hash:
       for ent in self._wiki_ent_hash[org_query]:
-        if re.search(ent, doc, re.I | re.M):
+        ent_str = ' %s ' % ent
+        if re.search(ent_str, doc, re.I | re.M):
           ## change to count match once to count the total number of matches
-          match_list = re.findall(ent, doc, re.I | re.M)
+          match_list = re.findall(ent_str, doc, re.I | re.M)
           score = score + WIKI_ENT_MATCH_SCORE * len(match_list)
     else:
       print 'I can not find the query [%s] in self._wiki_ent_hash' %org_query
@@ -229,8 +230,8 @@ class WikiMatch():
           match_list = re.findall(ent, doc, re.I | re.M)
           score = score + WIKI_ENT_MATCH_SCORE * len(match_list)
 
-          ent_span = "<span class=\"rent\">" + ent + "</span>"
-          ent_regex = ur'%s' %( ent )
+          ent_span = "<span class=\"rent\"> " + ent + " </span>"
+          ent_regex = ur' %s ' %( ent )
           replacer = re.compile(ent_regex, re.I | re.M)
           doc = replacer.sub(ent_span, doc)
 
