@@ -72,7 +72,7 @@ class HomeHandler(BaseHandler):
 
 class IDFMIHandler(BaseHandler):
   def get(self):
-    self.render('idf-rel.html')
+    self.render('idf-mi.html')
 
 class IDFMIDistHandler(BaseHandler):
   def get(self):
@@ -83,7 +83,12 @@ class IDFMIDistHandler(BaseHandler):
     ent_num = self._wiki_ent_list_db.llen(RedisDB.wiki_ent_list)
     ent_list = self._wiki_ent_list_db.lrange(RedisDB.wiki_ent_list, 0, ent_num)
 
+    so_far = 0
     for ent_id in ent_list:
+      so_far = so_far + 1
+      #if so_far > 100:
+        #break
+
       keys = ['id', 'query', 'ent', 'url']
       db_item = self._wiki_ent_list_db.hmget(ent_id, keys)
 
