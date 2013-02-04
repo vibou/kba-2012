@@ -1,6 +1,11 @@
 #!/usr/bin/python
 '''
-collect the distribution informaton of related entities for each query entity
+Collect the distribution informaton of related entities for each query entity
+
+In this version only the documents which have exact match with the query
+entities will be processed.
+
+There would be roughly 40,000 documents
 
 collect-ent-dist.py <thrift_dir>
 '''
@@ -17,26 +22,6 @@ import hashlib
 import subprocess
 from collections import defaultdict
 from cStringIO import StringIO
-
-try:
-  from thrift import Thrift
-  from thrift.transport import TTransport
-  from thrift.protocol import TBinaryProtocol
-except:
-  ## If we are running in condor, then we might have to tell it
-  ## where to find the python thrift library.  This path is from
-  ## building thrift from source and not installing it.  It can be
-  ## downloaded from:
-  ## http://pypi.python.org/packages/source/t/thrift/thrift-0.8.0.tar.gz
-  ## and built using
-  ##    python setup.py build
-  sys.path.append('/path/to/thrift')
-
-  from thrift import Thrift
-  from thrift.transport import TTransport
-  from thrift.protocol import TBinaryProtocol
-
-from kba_thrift.ttypes import StreamItem, StreamTime, ContentItem
 
 import redis
 from config import RedisDB
@@ -131,7 +116,7 @@ class EntDistCollector():
       ent = self.format_query(ent)
       self._wiki_ent_hash[ent_id] = ent
 
-  def process_stream_item(self, fname, stream_id, stream_data):
+  def process_stream_item(self, ret_id, query, stream_id, stream_data):
     '''
     process the streaming item: applying exact match for each of the query
     entity
@@ -151,7 +136,7 @@ class EntDistCollector():
           list_name = 'doc-list-%s' % id
           val = '%s:%d:%s' %(stream_id, doc_len, match_num)
           self._wiki_ent_dist_db.lpush(list_name, val)
-          print '%s-%s : %s' %(id, ent, val)
+          print '%s %s-%s : %s' %(ret_id, id, ent, val)
       except:
         # Catch any unicode errors while printing to console
         # and just ignore them to avoid breaking application.
@@ -161,62 +146,43 @@ class EntDistCollector():
         print '-'*60
         exit(-1)
 
-  def parse_thift_data(self, thrift_dir):
+  def parse_data(self):
     '''
-    Parse the thift data in a given directory, apply exact matching over
-    the streaming documents
+    Parse all the documents which has exact match with the query entity
     '''
-    for fname in os.listdir(thrift_dir):
-      ## ignore other files, e.g. stats.json
-      if fname.endswith('.gpg'): continue
-      if fname.endswith('.xz'): continue
 
-      ## verbose output
-      print 'Process %s' % fname
+    num = self._exact_match_db.llen(RedisDB.ret_item_list)
+    if 0 == num:
+      print 'no ret_item found'
+      return
 
-      ### reverse the steps from above:
-      ## load the encrypted data
-      fpath = os.path.join(thrift_dir, fname)
-      thrift_data = open(fpath).read()
+    ret_item_list = self._exact_match_db.lrange(RedisDB.ret_item_list, 0, num)
+    ret_items = []
+    for ret_id in ret_item_list:
+      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
+      the_ret_item = self._exact_match_db.hmget(ret_id, ret_item_keys)
 
-      assert len(thrift_data) > 0, "failed to load: %s" % fpath
+      ret_item = {}
+      ret_item['id'] = the_ret_item[0]
+      ret_item['query'] = the_ret_item[1]
+      ret_item['file'] = the_ret_item[2]
+      ret_item['stream_id'] = the_ret_item[3]
+      ret_item['stream_data'] = the_ret_item[4]
 
-      ## wrap it in a file obj, thrift transport, and thrift protocol
-      transport = StringIO(thrift_data)
-      transport.seek(0)
-      transport = TTransport.TBufferedTransport(transport)
-      protocol = TBinaryProtocol.TBinaryProtocol(transport)
-
-      ## iterate over all thrift items
-      while 1:
-        stream_item = StreamItem()
-        try:
-          stream_item.read(protocol)
-        except EOFError:
-          break
-
-        ## process data
-        self.process_stream_item(fname, stream_item.stream_id, stream_item.body.cleansed)
-        ## suppress the verbose output
-        #print '%s' % stream_item.doc_id
-
-      ## close that transport
-      transport.close()
-
-      # free memory
-      thrift_data = None
+      ## process data
+      self.process_stream_item(ret_id, ret_item['query'], ret_item['stream_id'],
+          ret_item['stream_data'])
 
 def main():
   import argparse
   parser = argparse.ArgumentParser(usage=__doc__)
   #parser.add_argument('query')
-  parser.add_argument('thrift_dir')
   args = parser.parse_args()
 
   collector = EntDistCollector()
   #collector.parse_query(args.query)
   collector.load_wiki_ent()
-  collector.parse_thift_data(args.thrift_dir)
+  collector.parse_data()
 
 if __name__ == '__main__':
   try:
