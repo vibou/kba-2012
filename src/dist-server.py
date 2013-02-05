@@ -153,12 +153,84 @@ class IDFMIDistHandler(BaseHandler):
       line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
       self.write(line)
 
+class IDFRelHandler(BaseHandler):
+  def get(self):
+    self.render('idf-rel.html')
+
+class IDFRelDistHandler(BaseHandler):
+  def get(self):
+    # weight(ent) = p(rel|occ)
+
+    ent_num = self._wiki_ent_list_db.llen(RedisDB.wiki_ent_list)
+    ent_list = self._wiki_ent_list_db.lrange(RedisDB.wiki_ent_list, 0, ent_num)
+
+    so_far = 0
+    point_list = []
+    for ent_id in ent_list:
+      so_far = so_far + 1
+      #if so_far > 100:
+        #break
+
+      keys = ['id', 'query', 'ent', 'url']
+      db_item = self._wiki_ent_list_db.hmget(ent_id, keys)
+
+      query = db_item[1]
+      if not query in self._annotation:
+        continue
+
+      list_name = 'doc-list-%s' % ent_id
+      list_len = self._wiki_ent_dist_db.llen(list_name)
+      if not list_len > 0:
+        continue
+
+      item_list = self._wiki_ent_dist_db.lrange(list_name, 0, list_len)
+      occ_num = list_len
+
+      rel_num = len(self._annotation[query].keys())
+      occ_rel_num = 0
+      all_doc_num = 39138
+
+      for item in item_list:
+        items = item.split(':')
+        stream_id = items[0]
+        num = items[2]
+
+        # check whether the document is relevant
+        if stream_id in self._annotation[query]:
+          occ_rel_num = occ_rel_num + 1
+
+      p_rel_occ = occ_rel_num / occ_num
+      p_occ = occ_num / all_doc_num
+      # boundary check
+      if not p_rel_occ > 0:
+        continue
+
+      log_idf = math.log(p_occ)
+      w_ent = math.log(p_rel_occ)
+
+      point = DictItem()
+      point['occ_num'] = occ_num
+      point['log_idf'] = log_idf
+      point['w_ent'] = w_ent
+      point_list.append(point)
+
+    ## sort the point list occ_num
+    point_list.sort(key=lambda x: x['w_ent'])
+    ## group them into bins, and select the median value of the bin to output
+    for bin in list(chunks(point_list, 10)):
+      median = int(len(bin)/2)
+      med_point = bin[median]
+      line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
+      self.write(line)
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
       (r'/', HomeHandler),
       (r'/idf/mi', IDFMIHandler),
       (r'/idf/mi/dist', IDFMIDistHandler),
+      (r'/idf/rel', IDFRelHandler),
+      (r'/idf/rel/dist', IDFRelDistHandler),
     ]
 
     settings = dict(
