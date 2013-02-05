@@ -118,8 +118,8 @@ class EntDistCollector():
 
   def process_stream_item(self, ret_id, query, stream_id, stream_data):
     '''
-    process the streaming item: applying exact match for each of the query
-    entity
+    process the streaming item: applying exact match for each of the related
+    entities
     '''
     doc = self.sanitize(stream_data)
     doc_len = len(doc.split(' '))
@@ -146,6 +146,40 @@ class EntDistCollector():
         print '-'*60
         exit(-1)
 
+  def process_stream_item_query(self, ret_id, query, stream_id, stream_data):
+    '''
+    process the streaming item: applying exact match for each of the query
+    entities
+    '''
+    if query in self._query2id_hash:
+      qid = self._query2id_hash[query]
+    else:
+      print 'Invalid query: [%s].\nNO qid found.' %query
+      return
+
+    doc = self.sanitize(stream_data)
+    doc_len = len(doc.split(' '))
+
+    try:
+      query_str = ' %s ' % self.format_query(query)
+      if re.search(query_str, doc, re.I | re.M):
+        ## change to count match once to count the total number of matches
+        match_list = re.findall(query_str, doc, re.I | re.M)
+        match_num = len(match_list)
+
+        list_name = 'query-doc-list-%s' % qid
+        val = '%s:%d:%s' %(stream_id, doc_len, match_num)
+        self._wiki_ent_dist_db.lpush(list_name, val)
+        print '%s %s-%s : %s' %(ret_id, qid, query, val)
+    except:
+      # Catch any unicode errors while printing to console
+      # and just ignore them to avoid breaking application.
+      print "Exception in process_stream_item_query()"
+      print '-'*60
+      traceback.print_exc(file=sys.stdout)
+      print '-'*60
+      exit(-1)
+
   def parse_data(self):
     '''
     Parse all the documents which has exact match with the query entity
@@ -170,17 +204,19 @@ class EntDistCollector():
       ret_item['stream_data'] = the_ret_item[4]
 
       ## process data
-      self.process_stream_item(ret_id, ret_item['query'], ret_item['stream_id'],
+      self.process_stream_item_query(ret_id, ret_item['query'], ret_item['stream_id'],
           ret_item['stream_data'])
+      #self.process_stream_item(ret_id, ret_item['query'], ret_item['stream_id'],
+          #ret_item['stream_data'])
 
 def main():
   import argparse
   parser = argparse.ArgumentParser(usage=__doc__)
-  #parser.add_argument('query')
+  parser.add_argument('query')
   args = parser.parse_args()
 
   collector = EntDistCollector()
-  #collector.parse_query(args.query)
+  collector.parse_query(args.query)
   collector.load_wiki_ent()
   collector.parse_data()
 
