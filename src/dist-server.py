@@ -27,6 +27,17 @@ from tornado.options import define, options
 define("port", default=9999, help="run on the given port", type=int)
 
 '''
+Chunk the list into bins with the same size
+http://stackoverflow.com/a/312464
+'''
+def chunks(l, n):
+  '''
+  Yield successive n-sized chunks from l.
+  '''
+  for i in xrange(0, len(l), n):
+    yield l[i:i+n]
+
+'''
 Transfer the raw data to HTML
 Basically the goal is to make sure each paragraph is embedded in <p></p>
 '''
@@ -84,6 +95,7 @@ class IDFMIDistHandler(BaseHandler):
     ent_list = self._wiki_ent_list_db.lrange(RedisDB.wiki_ent_list, 0, ent_num)
 
     so_far = 0
+    point_list = []
     for ent_id in ent_list:
       so_far = so_far + 1
       #if so_far > 100:
@@ -123,10 +135,22 @@ class IDFMIDistHandler(BaseHandler):
       if not p_occ_rel > 0:
         continue
 
-      w_ent = math.log(p_occ_rel / p_occ)
       log_idf = math.log(p_occ)
+      w_ent = math.log(p_occ_rel / p_occ)
 
-      line = '%6.3f\t%6.3f\n' %(log_idf, w_ent)
+      point = DictItem()
+      point['occ_num'] = occ_num
+      point['log_idf'] = log_idf
+      point['w_ent'] = w_ent
+      point_list.append(point)
+
+    ## sort the point list occ_num
+    point_list.sort(key=lambda x: x['w_ent'])
+    ## group them into bins, and select the median value of the bin to output
+    for bin in list(chunks(point_list, 10)):
+      median = int(len(bin)/2)
+      med_point = bin[median]
+      line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
       self.write(line)
 
 class Application(tornado.web.Application):
