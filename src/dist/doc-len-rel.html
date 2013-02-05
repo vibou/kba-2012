@@ -1,0 +1,141 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>IDF-MI View</title>
+
+		<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+		<script type="text/javascript">
+$(function () {
+    var chart;
+    $(document).ready(function() {
+    
+        // define the options
+        var options = {
+    
+            chart: {
+                renderTo: 'container',
+                type: 'scatter',
+                zoomType: 'xy',
+                spacingLeft: 20,
+                spacingRight: 20,
+            },
+    
+            title: {
+                text: 'DOC_LEN-REL'
+            },
+    
+            subtitle: {
+                text: 'Click and drag in the plot area to zoom in'
+            },
+    
+            xAxis: {
+                title: {
+                  enabled: true,
+                  text: 'Median Bin Length'
+                },
+                startOnTick: true,
+                endOnTick: true,
+                showLastLabel: true
+            },
+    
+            yAxis: {
+                title: {
+                  text: 'Probability of Relevance'
+                }
+            },
+    
+            legend: {
+              layout: 'vertical',
+              align: 'left',
+              verticalAlign: 'top',
+              x: 100,
+              y: 70,
+              floating: true,
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1
+            },
+    
+            plotOptions: {
+              scatter: {
+                marker: {
+                  radius: 5,
+                  states: {
+                    hover: {
+                      enabled: true,
+                      lineColor: 'rgb(100,100,100)'
+                    }
+                  }
+                },
+                states: {
+                  hover: {
+                    marker: {
+                      enabled: false
+                    }
+                  }
+                }
+              }
+            },
+    
+            series: [{
+                name: 'weight(ent) - MI',
+                color: 'rgba(119, 152, 191, .5)',
+            }, {
+                name: 'reference'
+            }]
+        };
+    
+    
+        // Load data asynchronously using jQuery. On success, add the data
+        // to the options and initiate the chart.
+        // This data is obtained by exporting a GA custom report to TSV.
+        // http://api.jquery.com/jQuery.get/
+        jQuery.get('/doc/len/rel/dist', null, function(tsv, state, xhr) {
+            var lines = [],
+                date,
+    
+                // set up the two data series
+                values = [];
+    
+            // inconsistency
+            if (typeof tsv !== 'string') {
+                tsv = xhr.responseText;
+            }
+    
+            // split the data return into lines and parse them
+            tsv = tsv.split(/\n/g);
+            jQuery.each(tsv, function(i, line) {
+              // all data lines start with a double quote
+              line = line.split(/\t/);
+              if(2 != line.length){
+                return;
+              }
+    
+              values.push([
+                parseFloat(line[0]),
+                parseFloat(line[1])
+              ]);
+            });
+    
+            options.series[0].data = values;
+    
+            chart = new Highcharts.Chart(options);
+        });
+    });
+    
+});
+		</script>
+	</head>
+	<body>
+<script src="http://code.highcharts.com/highcharts.js"></script>
+<script src="http://code.highcharts.com/modules/exporting.js"></script>
+
+<!-- Additional files for the Highslide popup effect -->
+<script type="text/javascript" src="http://www.highcharts.com/highslide/highslide-full.min.js"></script>
+<script type="text/javascript" src="http://www.highcharts.com/highslide/highslide.config.js" charset="utf-8"></script>
+<link rel="stylesheet" type="text/css" href="http://www.highcharts.com/highslide/highslide.css" />
+
+<p><a href="/">&lt;- Return</a></p>
+<div id="container" style="min-width: 400px; height: 700px; margin: 0 auto"></div>
+</body>
+</html>

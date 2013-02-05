@@ -328,6 +328,48 @@ class WikiMatch():
       self.process_stream_item(ret_item['query'], ret_item['file'],
           ret_item['stream_id'], ret_item['stream_data'])
 
+  def preprocess_data(self):
+    '''
+    Parse all the documents which has exact match with the query entity
+    '''
+
+    num = self._exact_match_db.llen(RedisDB.ret_item_list)
+    if 0 == num:
+      print 'no ret_item found'
+      return
+
+    print 'Preprocessing data'
+    ret_item_list = self._exact_match_db.lrange(RedisDB.ret_item_list, 0, num)
+    ret_items = []
+    for ret_id in ret_item_list:
+      print '%s / %d' %(ret_id, num)
+      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
+      the_ret_item = self._exact_match_db.hmget(ret_id, ret_item_keys)
+
+      ret_item = {}
+      ret_item['id'] = the_ret_item[0]
+      ret_item['query'] = the_ret_item[1]
+      ret_item['file'] = the_ret_item[2]
+      ret_item['stream_id'] = the_ret_item[3]
+      ret_item['stream_data'] = the_ret_item[4]
+
+      ## process data
+      new_stream_data = self.sanitize(ret_item['stream_data'])
+      length = len(new_stream_data.split(' '))
+      # write the document length back
+      self._exact_match_db.hset(ret_id, 'len', length)
+
+      in_annotation_set = (ret_item['stream_id'], ret_item['query']) in self._annotation
+      if in_annotation_set:
+        rel = self._annotation[(ret_item['stream_id'], ret_item['query'])]
+        # write the relevance label back
+        self._exact_match_db.hset(ret_id, 'rel', rel)
+      else:
+        rel = -100
+        self._exact_match_db.hset(ret_id, 'rel', rel)
+
+    print 'Done.'
+
 def main():
   import argparse
   parser = argparse.ArgumentParser(usage=__doc__)
@@ -339,7 +381,8 @@ def main():
   match.parse_query(args.query)
   match.load_wiki_ent()
   match.load_annotation(args.annotation, False, False)
-  match.parse_data()
+  match.preprocess_data()
+  #match.parse_data()
 
 if __name__ == '__main__':
   try:

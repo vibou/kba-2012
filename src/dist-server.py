@@ -77,6 +77,10 @@ class BaseHandler(tornado.web.RequestHandler):
   def _annotation(self):
     return self.application._annotation
 
+  @property
+  def _rel_num(self):
+    return self.application._rel_num
+
 class HomeHandler(BaseHandler):
   def get(self):
     self.render('home.html', title='KBA Wiki Ent Dist')
@@ -223,6 +227,45 @@ class IDFRelDistHandler(BaseHandler):
       line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
       self.write(line)
 
+class DocLenRelHandler(BaseHandler):
+  def get(self):
+    self.render('doc-len-rel.html')
+
+class DocLenRelDistHandler(BaseHandler):
+  def get(self):
+    doc_num = self._exact_match_db.llen(RedisDB.ret_item_list)
+    doc_id_list = self._exact_match_db.lrange(RedisDB.ret_item_list, 0, doc_num)
+
+    so_far = 0
+    doc_list = []
+    for doc_id in doc_id_list:
+      so_far = so_far + 1
+      #if so_far > 1000:
+        #break
+
+      keys = ['id', 'query', 'stream_id', 'len', 'rel']
+      db_item = self._exact_match_db.hmget(doc_id, keys)
+
+      doc = DictItem()
+      doc['len'] = int(db_item[3])
+      doc['rel'] = int(db_item[4])
+      doc_list.append(doc)
+
+    ## sort doc_list by document length
+    doc_list.sort(key=lambda x: x['len'])
+    for bin in list(chunks(doc_list, 100)):
+      num_rel = 0
+      for doc in bin:
+        if doc['rel'] > 0:
+          num_rel = num_rel + 1
+
+      median = int(len(bin)/2)
+      doc_len_med = bin[median]['len']
+      p_rel = num_rel / self._rel_num
+
+      line = '%d\t%6.3f\n' %(doc_len_med, p_rel)
+      self.write(line)
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
@@ -231,6 +274,8 @@ class Application(tornado.web.Application):
       (r'/idf/mi/dist', IDFMIDistHandler),
       (r'/idf/rel', IDFRelHandler),
       (r'/idf/rel/dist', IDFRelDistHandler),
+      (r'/doc/len/rel', DocLenRelHandler),
+      (r'/doc/len/rel/dist', DocLenRelDistHandler),
     ]
 
     settings = dict(
@@ -251,6 +296,11 @@ class Application(tornado.web.Application):
       db=RedisDB.wiki_ent_dist_db)
 
     self._annotation = self.load_annotation('eval/qrels/testing.txt', True, False)
+
+    self._rel_num = 0
+    for query in self._annotation:
+      num = len(self._annotation[query])
+      self._rel_num = self._rel_num + num
 
   def load_annotation (self, path, include_relevant, include_neutral):
     '''
