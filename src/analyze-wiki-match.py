@@ -74,6 +74,12 @@ class WikiMatch():
     #for index, item in enumerate(query_list):
       #print '%d\t%s' % (index, item)
 
+    ## add the query entity list to DB if necessary
+    if not self._wiki_ent_list_db.exists(RedisDB.query_ent_list):
+      for index in self._org_query_hash:
+        org_query = self._org_query_hash[index]
+        self._wiki_ent_list_db.hset(RedisDB.query_ent_list, index, org_query)
+
   def format_query(self, query):
     '''
     format the original query
@@ -381,7 +387,7 @@ def main():
   match.parse_query(args.query)
   match.load_wiki_ent()
   match.load_annotation(args.annotation, False, False)
-  match.preprocess_data()
+  #match.preprocess_data()
   #match.parse_data()
 
 if __name__ == '__main__':

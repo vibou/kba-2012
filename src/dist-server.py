@@ -81,6 +81,10 @@ class BaseHandler(tornado.web.RequestHandler):
   def _rel_num(self):
     return self.application._rel_num
 
+  @property
+  def _doc_num_all(self):
+    return 39138
+
 class HomeHandler(BaseHandler):
   def get(self):
     self.render('home.html', title='KBA Wiki Ent Dist')
@@ -122,7 +126,7 @@ class IDFMIDistHandler(BaseHandler):
 
       rel_num = len(self._annotation[query].keys())
       occ_rel_num = 0
-      all_doc_num = 39138
+      all_doc_num = self._doc_num_all
 
       for item in item_list:
         items = item.split(':')
@@ -155,6 +159,50 @@ class IDFMIDistHandler(BaseHandler):
       median = int(len(bin)/2)
       med_point = bin[median]
       line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
+      self.write(line)
+
+class IDFMIQueryDistHandler(BaseHandler):
+  def get(self):
+    #                    p(occ|rel)
+    # weight(ent) = log ------------
+    #                     p(occ)
+
+    query_list = range(0, 29)
+    point_list = []
+    for qid in query_list:
+      list_name = 'query-doc-list-%s' % qid
+      list_len = self._wiki_ent_dist_db.llen(list_name)
+      if not list_len > 0:
+        continue
+
+      item_list = self._wiki_ent_dist_db.lrange(list_name, 0, list_len)
+      occ_num = list_len
+
+      query = self._wiki_ent_list_db.hget(RedisDB.query_ent_list, qid)
+      rel_num = len(self._annotation[query].keys())
+      occ_rel_num = 0
+      all_doc_num = self._doc_num_all
+
+      for item in item_list:
+        items = item.split(':')
+        stream_id = items[0]
+        num = items[2]
+
+        # check whether the document is relevant
+        if stream_id in self._annotation[query]:
+          occ_rel_num = occ_rel_num + 1
+
+      p_occ_rel = occ_rel_num / rel_num
+      p_occ = occ_num / all_doc_num
+      # boundary check
+      if not p_occ_rel > 0:
+        continue
+
+      log_idf = math.log(p_occ)
+      w_ent = math.log(p_occ_rel / p_occ)
+
+      #line = '%6.3f\t%6.3f\t%s\t%d\n' %(log_idf, w_ent, query, qid)
+      line = '%6.3f\t%6.3f\n' %(log_idf, w_ent)
       self.write(line)
 
 class IDFRelHandler(BaseHandler):
@@ -192,7 +240,7 @@ class IDFRelDistHandler(BaseHandler):
 
       rel_num = len(self._annotation[query].keys())
       occ_rel_num = 0
-      all_doc_num = 39138
+      all_doc_num = self._doc_num_all
 
       for item in item_list:
         items = item.split(':')
@@ -225,6 +273,47 @@ class IDFRelDistHandler(BaseHandler):
       median = int(len(bin)/2)
       med_point = bin[median]
       line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
+      self.write(line)
+
+class IDFRelQueryDistHandler(BaseHandler):
+  def get(self):
+    # weight(ent) = p(rel|occ)
+
+    query_list = range(0, 29)
+    point_list = []
+    for qid in query_list:
+      list_name = 'query-doc-list-%d' % qid
+      list_len = self._wiki_ent_dist_db.llen(list_name)
+      if not list_len > 0:
+        continue
+
+      item_list = self._wiki_ent_dist_db.lrange(list_name, 0, list_len)
+      occ_num = list_len
+
+      query = self._wiki_ent_list_db.hget(RedisDB.query_ent_list, qid)
+      rel_num = len(self._annotation[query].keys())
+      occ_rel_num = 0
+      all_doc_num = self._doc_num_all
+
+      for item in item_list:
+        items = item.split(':')
+        stream_id = items[0]
+        num = items[2]
+
+        # check whether the document is relevant
+        if stream_id in self._annotation[query]:
+          occ_rel_num = occ_rel_num + 1
+
+      p_rel_occ = occ_rel_num / occ_num
+      p_occ = occ_num / all_doc_num
+      # boundary check
+      if not p_rel_occ > 0:
+        continue
+
+      log_idf = math.log(p_occ)
+      w_ent = math.log(p_rel_occ)
+
+      line = '%6.3f\t%6.3f\n' %(log_idf, w_ent)
       self.write(line)
 
 class DocLenRelHandler(BaseHandler):
@@ -272,8 +361,10 @@ class Application(tornado.web.Application):
       (r'/', HomeHandler),
       (r'/idf/mi', IDFMIHandler),
       (r'/idf/mi/dist', IDFMIDistHandler),
+      (r'/idf/mi/query/dist', IDFMIQueryDistHandler),
       (r'/idf/rel', IDFRelHandler),
       (r'/idf/rel/dist', IDFRelDistHandler),
+      (r'/idf/rel/query/dist', IDFRelQueryDistHandler),
       (r'/doc/len/rel', DocLenRelHandler),
       (r'/doc/len/rel/dist', DocLenRelDistHandler),
     ]

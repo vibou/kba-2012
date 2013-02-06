@@ -42,6 +42,7 @@ class RedisDB(object):
     # specifications related to bootstraping
     ret_item_list = 'ret_item_list'
     wiki_ent_list = 'wiki_ent_list'
+    query_ent_list = 'query_ent_list'
     wiki_ent_set = 'wiki_ent_set'
 
     # mutex

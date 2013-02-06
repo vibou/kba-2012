@@ -157,11 +157,16 @@ class EntDistCollector():
       print 'Invalid query: [%s].\nNO qid found.' %query
       return
 
+    qid_list = [4, 5, 7, 8]
+    if not qid in qid_list:
+      return
+
     doc = self.sanitize(stream_data)
     doc_len = len(doc.split(' '))
 
     try:
       query_str = ' %s ' % self.format_query(query)
+      query_str = self.sanitize(query_str)
       if re.search(query_str, doc, re.I | re.M):
         ## change to count match once to count the total number of matches
         match_list = re.findall(query_str, doc, re.I | re.M)
