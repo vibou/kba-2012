@@ -32,6 +32,8 @@ try:
 
   slope, intercept, r_value, p_value, std_err = stats.linregress(xi,y)
 
+  print 'slope', slope
+  print 'intercept', intercept
   print 'r value', r_value
   print  'p_value', p_value
   print 'standard deviation', std_err

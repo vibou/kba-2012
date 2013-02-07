@@ -15,7 +15,6 @@ import traceback
 import math
 
 from numpy import arange,array,ones,asarray #,random,linalg
-from pylab import plot,show
 from scipy import stats
 import argparse
 
@@ -57,7 +56,7 @@ def load_related_ent(related_ent_list):
   ent_list = []
 
   try:
-    with open(input_file) as f:
+    with open(related_ent_list) as f:
       for line in f.readlines():
         values = line.strip().split('\t')
 
@@ -76,15 +75,49 @@ def load_related_ent(related_ent_list):
     print '-' * 60
     exit(-1)
 
-def apply_reweighting(slope, intercept, x_list, y_list, ent_weight_file):
-  if not len(x_list) == len(y_list):
-    print 'x_list and y_list must have the same size!'
-    return
-
-  for index, x in enumerate(x_list):
-    y = y_list[index]
+def apply_reweighting(slope, intercept, ent_list, ent_weight_file):
+  # estimate the delta distance from the linear predictor function
+  for point in ent_list:
+    x = point.x
+    y = point.y
     expected = slope * x + intercept
-    delta = math.fabs(expected - y)
+    point.delta = math.fabs(expected - y)
+
+  # apply the distance kernel function to re-weight the related entities
+  # the weight should be regularied to be between 0 and 1, i.e. 0 \leq w \leq 1
+
+  # first, try triangle kernel
+  triangle_kernel(ent_list)
+
+  # save the entity weight list
+  try:
+    print 'Saving %s' %ent_weight_file
+    with open(ent_weight_file, 'wb') as f:
+      for point in ent_list:
+        line = '%d\t%6.3f\t%s\t%s\n' %(point.id, point.weight, point.name,
+            point.query)
+        f.write(line)
+  except IOError as e:
+    print '-' * 60
+    traceback.print_exec(file = sys.stdout)
+    print '-' * 60
+    exit(-1)
+
+def triangle_kernel(ent_list):
+  # get the maximum delta value
+  max_delta = 0
+  for point in ent_list:
+    if point.delta > max_delta:
+      max_delta = point.delta
+
+  # estimate the weight based on linear degradation
+  if not max_delta > 0:
+    print 'max_delta must be greater than 0'
+    exit(-1)
+
+  for point in ent_list:
+    weight = 1 - point.delta / max_delta
+    point.weight = weight
 
 def main():
   parser = argparse.ArgumentParser(usage = __doc__)
@@ -93,9 +126,9 @@ def main():
   parser.add_argument('ent_weight')
   args = parser.parse_args()
 
-  slope, intercept, load_query_ent(args.query_ent_list)
-  x, y = load_related_ent(args.related_ent_list)
-  apply_reweighting(slope, intercept, x, y, args.ent_weight)
+  slope, intercept = load_query_ent(args.query_ent_list)
+  ent_list = load_related_ent(args.related_ent_list)
+  apply_reweighting(slope, intercept, ent_list, args.ent_weight)
 
 if '__main__' == __name__:
   main()
