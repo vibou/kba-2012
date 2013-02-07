@@ -1,5 +1,7 @@
 '''
 Apply linear regression to the input list and plot the results
+
+Usage lr.py <input>
 '''
 
 # http://glowingpython.blogspot.com/2012/03/linear-regression-with-numpy.html
@@ -27,7 +29,7 @@ try:
       values = line.strip().split('\t')
       xi.append(float(values[0]))
       y.append(float(values[1]))
-  
+
   slope, intercept, r_value, p_value, std_err = stats.linregress(xi,y)
 
   print 'r value', r_value
