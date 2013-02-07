@@ -113,6 +113,7 @@ class IDFMIDistHandler(BaseHandler):
       db_item = self._wiki_ent_list_db.hmget(ent_id, keys)
 
       query = db_item[1]
+      ent = db_item[2]
       if not query in self._annotation:
         continue
 
@@ -146,6 +147,10 @@ class IDFMIDistHandler(BaseHandler):
       log_idf = math.log(p_occ)
       w_ent = math.log(p_occ_rel / p_occ)
 
+      #line = '%6.3f\t%6.3f\t%s\t%s\t%s\n' %(log_idf, w_ent, ent_id, ent, query)
+      line = '%6.3f\t%6.3f\n' %(log_idf, w_ent)
+      self.write(line)
+
       point = DictItem()
       point['occ_num'] = occ_num
       point['log_idf'] = log_idf
@@ -158,8 +163,8 @@ class IDFMIDistHandler(BaseHandler):
     for bin in list(chunks(point_list, 10)):
       median = int(len(bin)/2)
       med_point = bin[median]
-      line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
-      self.write(line)
+      #line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
+      #self.write(line)
 
 class IDFMIQueryDistHandler(BaseHandler):
   def get(self):
