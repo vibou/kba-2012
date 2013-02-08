@@ -56,8 +56,8 @@ class WikiWeightMatch():
   _weight_hash = {}
 
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      #db=RedisDB.exact_match_db)
-      db=RedisDB.test_exact_match_db)
+      db=RedisDB.train_exact_match_db)
+      #db=RedisDB.test_exact_match_db)
       #db=RedisDB.fuzzy_match_db)
       #db=RedisDB.filtered_test_db)
 
