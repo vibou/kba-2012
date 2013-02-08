@@ -31,7 +31,7 @@ my %rel_run;
 
 # the threshold of score for the relevant documents
 #my $REL_THRED = 101;
-my $REL_THRED = 100;
+my $REL_THRED = 5.0;
 
 main();
 
@@ -81,9 +81,9 @@ sub gen_result(){
       if($score > $REL_THRED){
         $rel_run{$query}{$did} = $score;
       }
-      if($score >= 100){
-        $score -= 100;
-      }
+      #if($score >= 100){
+      #$score -= 100;
+      #}
       $sum_score += $score;
       ++$num_score;
     }

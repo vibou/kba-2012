@@ -383,13 +383,15 @@ class Application(tornado.web.Application):
 
     # global database connections for all handles
     self._exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.test_exact_match_db)
+      db=RedisDB.train_exact_match_db)
+      #db=RedisDB.test_exact_match_db)
 
     self._wiki_ent_list_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.wiki_ent_list_db)
 
     self._wiki_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.wiki_ent_dist_db)
+      db=RedisDB.train_wiki_ent_dist_db)
+      #db=RedisDB.wiki_ent_dist_db)
 
     self._annotation = self.load_annotation('eval/qrels/testing.txt', True, False)
 
@@ -420,7 +422,8 @@ class Application(tornado.web.Application):
 
       stream_id = row[2]
       epoch = int(stream_id.split('-')[0])
-      if not epoch > epoch_thred:
+      #if not epoch > epoch_thred:
+      if epoch > epoch_thred:
         continue
 
       urlname = row[3]

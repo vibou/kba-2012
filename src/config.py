@@ -10,7 +10,7 @@ class RedisDB(object):
 
     # specifications of which DB to use for different purposes
     eval_db = 0
-    exact_match_db = 1
+    train_exact_match_db = 1
     fuzzy_match_db = 2
 
     #wiki_match_db = 5
@@ -33,6 +33,7 @@ class RedisDB(object):
 
     #wiki_ent_dist_db = 20
     wiki_ent_dist_db = 21
+    train_wiki_ent_dist_db = 22
 
     # specifications of hash tables
     # the to-be-processed tweet list

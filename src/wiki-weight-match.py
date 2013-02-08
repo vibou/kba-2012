@@ -220,7 +220,7 @@ class WikiWeightMatch():
       #self._wiki_match_db.hmset(id, ret_item)
 
       ## verbose output
-      print 'Match: %d - %s - %s - %d' %(id, org_query, stream_id, score)
+      print 'Match: %d - %s - %s - %6.3f' %(id, org_query, stream_id, score)
       #print '%s %s %d' %(org_query, stream_id, score)
     except:
       # Catch any unicode errors while printing to console

@@ -7,7 +7,7 @@ entities will be processed.
 
 There would be roughly 40,000 documents
 
-collect-ent-dist.py <thrift_dir>
+collect-ent-dist-v2.py <query>
 '''
 
 import re
@@ -40,14 +40,15 @@ class EntDistCollector():
   _wiki_ent_hash = {}
 
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      #db=RedisDB.exact_match_db)
-      db=RedisDB.test_exact_match_db)
+      db=RedisDB.train_exact_match_db)
+      #db=RedisDB.test_exact_match_db)
 
   _wiki_ent_list_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.wiki_ent_list_db)
 
   _wiki_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.wiki_ent_dist_db)
+      db=RedisDB.train_wiki_ent_dist_db)
+      #db=RedisDB.wiki_ent_dist_db)
 
   def parse_query(self, query_file):
     '''
@@ -158,8 +159,8 @@ class EntDistCollector():
       return
 
     qid_list = [4, 5, 7, 8]
-    if not qid in qid_list:
-      return
+    #if not qid in qid_list:
+      #return
 
     doc = self.sanitize(stream_data)
     doc_len = len(doc.split(' '))
