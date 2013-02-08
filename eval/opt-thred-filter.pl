@@ -36,7 +36,7 @@ my %test_filter_run;
 my %opt_thred;
 my %eval;
 
-my $INC_STEP = 5.0;
+my $INC_STEP = 1.0;
 
 main();
 
@@ -51,7 +51,7 @@ sub main(){
 # load qrel data
 sub load_qrels(){
   open QRELS, $qrels_file or die "Can't open `$qrels_file': $!\n";
-  print "Loading $qrels_file";
+  print "Loading $qrels_file\n";
 
   while (<QRELS>) {
     chomp;
@@ -63,6 +63,8 @@ sub load_qrels(){
     # 23:59:59 GMT+0000
     # we only load the judgment for training data
     next if $epoch > 1325375999;
+    # alternatively, we would load the judgment for testing data
+    #next if $epoch <= 1325375999;
 
     if($score > 0 and $rel > 0){
       $qrel{$query}{$did} = $rel;
@@ -74,7 +76,7 @@ sub load_qrels(){
 # load the data of training data
 sub load_train(){
   open TRAIN, $train_file or die "Can't open `$train_file': $!\n";
-  print "Loading $train_file";
+  print "Loading $train_file\n";
 
   while (<TRAIN>) {
     chomp;
@@ -87,9 +89,9 @@ sub load_train(){
 }
 
 # load the data of testing data
-sub load_train(){
+sub load_test(){
   open TEST, $test_file or die "Can't open `$test_file': $!\n";
-  print "Loading $test_file";
+  print "Loading $test_file\n";
 
   while (<TEST>) {
     chomp;
@@ -120,9 +122,12 @@ sub search_opt_thred(){
 
   my $min_thred = ceil($min_score);
   my $max_thred = floor($max_score);
+  if($max_thred > 150){
+    $max_thred = 150;
+  }
 
-  printf "MIN_THRED: %d", $min_thred;
-  printf "MAX_THRED: %d", $max_thred;
+  printf "MIN_THRED: %d\n", $min_thred;
+  printf "MAX_THRED: %d\n", $max_thred;
 
   for my $query(keys %train_run){
     $opt_thred{$query}{F1} = 0;
@@ -131,7 +136,7 @@ sub search_opt_thred(){
 
   # then, try different threshold varying from the minimum to the maixmum
   for(my $thred = $min_thred; $thred <= $max_thred; $thred += $INC_STEP){
-    print "CUR_THRED: %d", $thred;
+    printf "CUR_THRED: %d\n", $thred;
 
     # clear the previous filtered training results
     for(keys %train_filter_run){
@@ -142,7 +147,7 @@ sub search_opt_thred(){
     for my $query(keys %train_run){
       for my $did(keys %{$train_run{$query}}){
         my $score = $train_run{$query}{$did};
-        if($score > $thred){
+        if($score >= $thred){
           $train_filter_run{$query}{$did} = $score;
         }
       }
@@ -150,10 +155,11 @@ sub search_opt_thred(){
 
     # apply the evaluation
     pr_eval();
+
+    # check whether the current thred can lead to better performance
     for my $query(keys %eval){
       my $cur_f1 = $eval{$query}{F1};
       my $opt_f1 = $opt_thred{$query}{F1};
-      # check whether the current thred can lead to better performance
       if($cur_f1 > $opt_f1){
         $opt_thred{$query}{F1} = $cur_f1;
         $opt_thred{$query}{THRED} = $thred;
@@ -165,7 +171,7 @@ sub search_opt_thred(){
     my $thred = $opt_thred{$query}{THRED};
     for my $did(keys %{$test_run{$query}}){
       my $score = $test_run{$query}{$did};
-      if($score > $thred){
+      if($score >= $thred){
         $test_filter_run{$query}{$did} = $score;
       }
     }
