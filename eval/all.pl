@@ -237,5 +237,13 @@ sub means() {
   printf "all\tF1\t%6.3f\n", $cum{F1}/$num_q;
   printf "all\tMAP\t%6.3f\n", $cum{MAP}/$num_q;
   printf "all\tnDCG\t%6.3f\n", $cum{nDCG}/$num_q;
+
+  my $ave_prec = $cum{P} / $num_q;
+  my $ave_recall = $cum{R} / $num_q;
+  my $macro_f1 = 0.0;
+  if($ave_prec + $ave_recall > 0){
+    $macro_f1 = 2 * $ave_prec * $ave_recall / ($ave_prec + $ave_recall);
+  }
+  printf "all\tM-F1\t%6.3f\n", $macro_f1;
 }
 

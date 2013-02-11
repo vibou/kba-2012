@@ -14,7 +14,8 @@ class RedisDB(object):
     fuzzy_match_db = 2
 
     #wiki_match_db = 5
-    wiki_match_db = 6
+    #wiki_match_db = 6
+    wiki_match_db = 26
     new_wiki_match_db = 7
 
     wiki_ent_list_db = 13

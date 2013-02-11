@@ -107,7 +107,6 @@ class EntDistCollector():
       return
 
     ent_item_list = self._wiki_ent_list_db.lrange(RedisDB.wiki_ent_list, 0, num)
-    ent_items = []
 
     for ent_id in ent_item_list:
       keys = ['id', 'query', 'ent', 'url']

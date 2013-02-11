@@ -25,9 +25,6 @@ import redis
 import csv
 from config import RedisDB
 
-QUERY_ENT_MATCH_SCORE = 100
-WIKI_ENT_MATCH_SCORE = 1
-
 def log(m, newline='\n'):
   sys.stderr.write(m + newline)
   sys.stderr.flush()
@@ -39,7 +36,8 @@ class WikiMatch():
   _query_hash = {}
   _org_query_hash = {}
   _query2id_hash = {}
-  _wiki_ent_hash = None
+  _wiki_ent_hash = {}
+  _weight_hash = {}
 
   _annotation = dict()
 
@@ -74,6 +72,8 @@ class WikiMatch():
     #for index, item in enumerate(query_list):
       #print '%d\t%s' % (index, item)
 
+    return
+
     ## add the query entity list to DB if necessary
     if not self._wiki_ent_list_db.exists(RedisDB.query_ent_list):
       for index in self._org_query_hash:
@@ -97,6 +97,18 @@ class WikiMatch():
     query = space_regex.sub( ' ', query)
 
     return query.lower()
+
+  def load_weight (self, weight_file_path):
+    '''
+    Load the weight list of related entities
+    '''
+    weight_file = csv.reader(open(weight_file_path, 'r'), delimiter='\t')
+    for row in weight_file:
+      ent_id = row[0]
+      weight = float(row[1])
+      ent_name = row[2]
+      query = row[3]
+      self._weight_hash[ent_id] = weight
 
   def load_annotation (self, path_to_annotation_file, include_relevant, include_neutral):
     '''
@@ -164,18 +176,17 @@ class WikiMatch():
       return
 
     ent_item_list = self._wiki_ent_list_db.lrange(RedisDB.wiki_ent_list, 0, num)
-    ent_items = []
 
-    ## initialize the dictionary with list as elements
-    ## http://stackoverflow.com/q/960733
-    self._wiki_ent_hash = defaultdict(list)
     for ent_id in ent_item_list:
       keys = ['id', 'query', 'ent', 'url']
       db_item = self._wiki_ent_list_db.hmget(ent_id, keys)
       query = db_item[1]
       ent = db_item[2]
       ent = self.format_query(ent)
-      self._wiki_ent_hash[query].append(ent)
+
+      if not query in self._wiki_ent_hash:
+        self._wiki_ent_hash[query] = {}
+      self._wiki_ent_hash[query][ent_id] = ent
 
   def calc_score(self, qid, doc):
     '''
@@ -185,58 +196,57 @@ class WikiMatch():
     org_query = self._org_query_hash[qid]
 
     score = 0
-    ## first, calculate it with the query entity
-    ## use the query entity as the regex to apply exact match
-    if re.search(query, doc, re.I | re.M):
-      score = score + QUERY_ENT_MATCH_SCORE
 
     if org_query in self._wiki_ent_hash:
-      for ent in self._wiki_ent_hash[org_query]:
+      for ent_id in self._wiki_ent_hash[org_query]:
+        ent = self._wiki_ent_hash[org_query][ent_id]
         ent_str = ' %s ' % ent
+
+        weight = 0
+        if ent_id in self._weight_hash:
+          weight = self._weight_hash[ent_id]
+
         if re.search(ent_str, doc, re.I | re.M):
           ## change to count match once to count the total number of matches
           match_list = re.findall(ent_str, doc, re.I | re.M)
-          score = score + WIKI_ENT_MATCH_SCORE * len(match_list)
+          score = score + len(match_list) * weight
     else:
       print 'I can not find the query [%s] in self._wiki_ent_hash' %org_query
 
     return score
 
-  '''
-  Transfer the raw data to HTML
-  Basically the goal is to make sure each paragraph is embedded in <p></p>
-  '''
   def raw2html(self, qid, doc):
     '''
-    Calculate the score of a document w.r.t. the given query
+    Transfer the raw data to HTML
+    Basically the goal is to make sure each paragraph is embedded in <p></p>
     '''
     query = self._query_hash[qid]
     org_query = self._org_query_hash[qid]
 
-    #doc = self.sanitize(doc)
-
-    score = 0
     ## first, calculate it with the query entity
     ## use the query entity as the regex to apply exact match
     match = re.search(query, doc, re.I | re.M)
     doc = unicode(doc, errors='ignore')
     if match:
-      score = score + QUERY_ENT_MATCH_SCORE
-      query_span = "<span class=\"qent\">" + query + "</span>"
-      #query_regex = ur'%s' %( query )
+      query_span = '<span class=\"qent\">' + query + '</span>'
       query_regex = r'%s' %( query )
       replacer = re.compile(query_regex, re.I | re.M)
-      #doc = replacer.sub(query_span, doc.decode('unicode-escape'))
       doc = replacer.sub(query_span, doc)
 
     if org_query in self._wiki_ent_hash:
-      for ent in self._wiki_ent_hash[org_query]:
+      for ent_id in self._wiki_ent_hash[org_query]:
+        ent = self._wiki_ent_hash[org_query][ent_id]
+        ent_str = ' %s ' % ent
+        weight = 0
+        if ent_id in self._weight_hash:
+          weight = self._weight_hash[ent_id]
+        weight_str = ' (%6.3f)' % weight
+
         if re.search(ent, doc, re.I | re.M):
           ## change to count match once to count the total number of matches
           match_list = re.findall(ent, doc, re.I | re.M)
-          score = score + WIKI_ENT_MATCH_SCORE * len(match_list)
 
-          ent_span = "<span class=\"rent\"> " + ent + " </span>"
+          ent_span = '<span class=\"rent\"> ' + ent + weight_str + ' </span>'
           ent_regex = ur' %s ' %( ent )
           replacer = re.compile(ent_regex, re.I | re.M)
           doc = replacer.sub(ent_span, doc)
@@ -264,9 +274,6 @@ class WikiMatch():
     try:
       score = self.calc_score(qid, new_stream_data)
 
-      if score < 100:
-        return
-
       id = self._wiki_match_db.llen(RedisDB.ret_item_list)
 
       ## create a hash record
@@ -275,7 +282,7 @@ class WikiMatch():
       ret_item['file'] = fname
       ret_item['stream_id'] = stream_id
       ret_item['stream_data'] = self.raw2html(qid, stream_data)
-      ret_item['score'] = score
+      ret_item['score'] = '%6.3f' % score
 
       #Show the annotation of the stream_id-query pair as what is is
       in_annotation_set = (stream_id, org_query) in self._annotation
@@ -381,14 +388,16 @@ def main():
   parser = argparse.ArgumentParser(usage=__doc__)
   parser.add_argument('query')
   parser.add_argument('annotation')
+  parser.add_argument('weight')
   args = parser.parse_args()
 
   match = WikiMatch()
   match.parse_query(args.query)
   match.load_wiki_ent()
   match.load_annotation(args.annotation, False, False)
+  match.load_weight(args.weight)
   #match.preprocess_data()
-  #match.parse_data()
+  match.parse_data()
 
 if __name__ == '__main__':
   try:

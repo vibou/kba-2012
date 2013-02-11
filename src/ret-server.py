@@ -570,7 +570,7 @@ class Application(tornado.web.Application):
 
     # global database connections for all handles
     self._exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-        db=RedisDB.exact_match_db)
+        db=RedisDB.train_exact_match_db)
         #db=RedisDB.fuzzy_match_db)
 
     self._eval_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
