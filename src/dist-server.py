@@ -393,7 +393,7 @@ class Application(tornado.web.Application):
       db=RedisDB.train_wiki_ent_dist_db)
       #db=RedisDB.wiki_ent_dist_db)
 
-    self._annotation = self.load_annotation('eval/qrels/testing.txt', True, False)
+    self._annotation = self.load_annotation('eval/qrels/all.txt', True, False)
 
     self._rel_num = 0
     for query in self._annotation:
