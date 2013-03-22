@@ -20,3 +20,6 @@ rumor/
 indri/
 indri-*
 qrels/
+weight/
+oair/
+filter/

@@ -81,6 +81,8 @@ class FuzzyMatch():
       try:
         with open(alias_file) as f:
           for line in [line.strip() for line in f]:
+            # encode in Unicode
+            line = unicode(line, errors='ignore')
             alias = self.format_query(line)
             if not query in self._alias_query_hash:
               self._alias_query_hash[query] = {}
@@ -136,17 +138,21 @@ class FuzzyMatch():
     '''
     org_query = self._org_query_hash[index]
     query = self._query_hash[index]
+    doc = unicode(doc, errors='ignore')
 
     matched = False
     query_str = ' %s ' %(query)
     if re.search(query_str, doc, re.I | re.M):
-      matched = True
+      #matched = True
       return matched
 
     if not org_query in self._alias_query_hash:
       return matched
 
     for alias in self._alias_query_hash[org_query]:
+      if alias == query:
+        continue
+
       alias_str = ' %s ' %(alias)
       if re.search(alias_str, doc, re.I | re.M):
         matched = True
