@@ -579,8 +579,9 @@ class Application(tornado.web.Application):
         db=RedisDB.wiki_ent_list_db)
 
     self._test_exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-        db=RedisDB.test_exact_match_db)
+        #db=RedisDB.test_exact_match_db)
         #db=RedisDB.fuzzy_match_db)
+        db=RedisDB.oair_test_db)
 
     self._wiki_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.wiki_match_db)
