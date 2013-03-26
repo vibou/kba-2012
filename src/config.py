@@ -12,8 +12,11 @@ class RedisDB(object):
     eval_db = 0
     train_exact_match_db = 1
     #fuzzy_match_db = 2
-    fuzzy_match_db = 23
 
+    #fuzzy_match_db = 23
+    fuzzy_match_db = 25
+
+    oair_train_db = 27
     oair_test_db = 24
 
     #wiki_match_db = 5

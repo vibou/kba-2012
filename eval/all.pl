@@ -29,6 +29,8 @@ my $run_file = shift or die $usage;
 my %qrel;
 my %run;
 my %cum;
+my $total_rel = 0;
+my $total_rel_ret = 0;
 
 unless('train' eq $train_or_test or 'test' eq $train_or_test){
   die "\$train_or_test must be 'train' or 'equal'\!";
@@ -91,6 +93,7 @@ sub pr_eval(){
   for my $query(sort {$a cmp $b} keys %qrel){
     my $num_ret = scalar keys %{$run{$query}};
     my $num_rel = scalar keys %{$qrel{$query}};
+    $total_rel += $num_rel;
 
     if(0 == $num_ret){
       $num_ret = 1;
@@ -107,6 +110,7 @@ sub pr_eval(){
 
     my $precision = $rel_ret / $num_ret;
     my $recall = $rel_ret / $num_rel;
+    $total_rel_ret += $rel_ret;
     my $f1 = 0;
     if(0 < $precision + $recall){
       $f1 = 2 * $precision * $recall / ($precision + $recall);
@@ -245,5 +249,7 @@ sub means() {
     $macro_f1 = 2 * $ave_prec * $ave_recall / ($ave_prec + $ave_recall);
   }
   printf "all\tM-F1\t%6.3f\n", $macro_f1;
+
+  printf "all\tM-Recall\t%6.3f\t%d\n", $total_rel_ret / $total_rel, $total_rel;
 }
 

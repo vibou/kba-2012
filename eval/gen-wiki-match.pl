@@ -78,12 +78,15 @@ sub gen_result(){
     my $num_score = 0;
     for my $did(keys %{$run{$query}}){
       my $score = $run{$query}{$did};
+
+      if($score >= 100){
+        $score -= 100;
+      }
+
       if($score > $REL_THRED){
         $rel_run{$query}{$did} = $score;
       }
-      #if($score >= 100){
-      #$score -= 100;
-      #}
+
       $sum_score += $score;
       ++$num_score;
     }

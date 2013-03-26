@@ -49,7 +49,10 @@ class WikiMatch():
       #db=RedisDB.exact_match_db)
       #db=RedisDB.test_exact_match_db)
       #db=RedisDB.fuzzy_match_db)
-      db=RedisDB.filtered_test_db)
+      #db=RedisDB.filtered_test_db)
+
+      db=RedisDB.oair_train_db)
+      #db=RedisDB.oair_test_db)
 
   _wiki_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.wiki_match_db)
@@ -170,7 +173,8 @@ class WikiMatch():
     try:
       score = self.calc_score(qid, new_stream_data)
 
-      id = self._wiki_match_db.llen(RedisDB.ret_item_list)
+      #id = self._wiki_match_db.llen(RedisDB.ret_item_list)
+      id = 0
       id = id + 1
       #self._wiki_match_db.rpush(RedisDB.ret_item_list, id)
 

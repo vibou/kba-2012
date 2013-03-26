@@ -33,13 +33,15 @@ class DictItem(dict):
 class Merger():
   # global database connections for all handles
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.test_exact_match_db)
+      db=RedisDB.train_exact_match_db)
+      #db=RedisDB.test_exact_match_db)
 
   _fuzzy_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.fuzzy_match_db)
 
   _merge_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.oair_test_db)
+      db=RedisDB.oair_train_db)
+      #db=RedisDB.oair_test_db)
 
   _ret_items = []
 
@@ -124,8 +126,8 @@ def main():
   merger = Merger()
   merger.get_exact_results()
   merger.get_fuzzy_result()
-  #merger.save_to_db()
-  merger.save_to_file()
+  merger.save_to_db()
+  #merger.save_to_file()
 
 if __name__ == "__main__":
   main()

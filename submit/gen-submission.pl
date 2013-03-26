@@ -28,7 +28,7 @@ my %run;
 
 my $team_id = "udel_fang";
 #my $system_id = "UDInfoKBA_EX";
-my $system_id = "UDInfoKBA_WIKI_3";
+my $system_id = "UDInfoKBA_WIKI_OPT";
 
 main();
 

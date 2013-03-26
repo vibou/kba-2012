@@ -66,7 +66,8 @@ sub load_qrels(){
     # alternatively, we would load the judgment for testing data
     #next if $epoch <= 1325375999;
 
-    if($score > 0 and $rel > 0){
+    #if($score > 0 and $rel > 0){
+    if($score > 0 and $rel > 1){
       $qrel{$query}{$did} = $rel;
     }
   }
@@ -81,9 +82,14 @@ sub load_train(){
   while (<TRAIN>) {
     chomp;
     next if /^$/;
-    
-    my ($lead, $query, $did, $score) = split / - /;
-    $train_run{$query}{$did} = $score;
+   
+    if($_ =~ m/ - /){
+      my ($lead, $query, $did, $score) = split / - /;
+      $train_run{$query}{$did} = $score;
+    }else{
+      my ($query, $did, $score) = split / /;
+      $train_run{$query}{$did} = $score;
+    }
   }
   close TRAIN;
 }
@@ -96,9 +102,14 @@ sub load_test(){
   while (<TEST>) {
     chomp;
     next if /^$/;
-    
-    my ($lead, $query, $did, $score) = split / - /;
-    $test_run{$query}{$did} = $score;
+   
+    if($_ =~ m/ - /){
+      my ($lead, $query, $did, $score) = split / - /;
+      $test_run{$query}{$did} = $score;
+    }else{
+      my ($query, $did, $score) = split / /;
+      $test_run{$query}{$did} = $score;
+    }
   }
   close TEST;
 }
