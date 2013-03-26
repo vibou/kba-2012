@@ -2,7 +2,7 @@
 '''
 Dump all the revisions of a given entity list from Wikipedia
 
-dump-wikipedia.py <query>
+dump-wikipedia.py <query> <json_file>
 '''
 
 import re
@@ -40,7 +40,7 @@ class DumpWikipedia():
   '''
   WIKI_API_URL = 'http://en.wikipedia.org/w/api.php?'\
                   'action=query&prop=revisions&rvprop=content|timestamp|ids'\
-                  '&redirects=true&format=json&titles='
+                  '&rvlimit=100&redirects=true&format=json&titles='
 
   def parse_query(self, query_file):
     '''
@@ -54,27 +54,74 @@ class DumpWikipedia():
       self._query_hash[index] = item
 
   def dump_wiki(self):
+    '''
+    Iteratively dump all the revision of a given wikipedia entity
+    '''
     for index in self._query_hash:
       query = self._query_hash[index]
-      content = self.retrieve(query)
-      if not content:
-        print 'Skipping query %s' %query
-        continue
 
-      doc = json.load(content)
+      ## construct the WikiPedia page URL
+      init_url = self.WIKI_API_URL + query
+      url = init_url
 
-      ## get the content of the markup
-      ## thanks to http://goo.gl/wDPha
-      text = doc['query']['pages'].itervalues().next()['revisions'][0]['*']
+      dict_dump = {}
+      dict_dump['query'] = query
+      dict_dump['revisions'] = {}
+
+      last_rev_id = 1
+      while 0 != last_rev_id:
+        # we now move on to retrieve the next batch starting fro the last
+        # revision id we have collected
+        if 1 != last_rev_id:
+          url = init_url + '&rvstartid=' + str(last_rev_id)
+
+        content = self.retrieve(url)
+        if not content:
+          break
+
+        doc = json.load(content)
+        revisions = doc['query']['pages'].itervalues().next()['revisions']
+
+        for rev in revisions:
+          rev_hash = {}
+          rev_hash['timestamp'] = rev['timestamp']
+          rev_hash['text'] = rev['*']
+          rev_hash['revid'] = rev['revid']
+          last_rev_id = rev['parentid']
+          # append the current revision to the hash
+          so_far = len(dict_dump['revisions'].keys())
+          dict_dump['revisions'][so_far] = rev_hash
+          print '%s %d %d %s' %(query, so_far, rev_hash['revid'],
+              rev_hash['timestamp'])
+
+        ## wait for 1 second to avoid unnecessary banning from Wikipedia server
+        time.sleep(1)
 
       # save the processed json dump to hash
-      self._wiki_json_hash[index] = doc
+      self._wiki_json_hash[index] = dict_dump
 
+      print '-' * 60
       print 'Query processed: %s' %query
+      print '-' * 60
+      ## for debug purpose only
+      #return
       ## wait for 10 seconds to avoid unnecessary banning from Wikipedia server
       time.sleep(10)
 
-  def retrieve(self, query):
+  def save_json(self, json_file):
+    '''
+    Serilize the json data into file
+    '''
+    try:
+      with open(json_file, 'w') as f:
+        json_str = json.dumps(self._wiki_json_hash)
+        f.write(json_str)
+    except IOError as e:
+      print 'Can not save file: %s' % json_file
+
+    print 'File %s saved.' % json_file
+
+  def retrieve(self, url):
     ## disguise myself as Firefox
     headers = {
       'User-Agent': 'Mozilla/5.0 (Windows) Gecko/20080201 Firefox/2.0.0.12',
@@ -83,9 +130,6 @@ class DumpWikipedia():
       'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
       'Connection': 'keep-alive'
     }
-
-    ## construct the WikiPedia page URL
-    url = self.WIKI_API_URL + query
 
     ## retrieve the WikiPedia page
     try:
@@ -111,12 +155,13 @@ def main():
   import argparse
   parser = argparse.ArgumentParser(usage=__doc__)
   parser.add_argument('query')
+  parser.add_argument('json_file')
   args = parser.parse_args()
 
-  registerInternalLinkHook(None, wikipediaLinkHook)
   dump = DumpWikipedia()
   dump.parse_query(args.query)
   dump.dump_wiki()
+  dump.save_json(args.json_file)
 
 if __name__ == '__main__':
   try:
