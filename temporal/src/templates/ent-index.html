@@ -1,0 +1,16 @@
+<html>
+<head>
+  <title>{{ title }}</title>
+</head>
+
+<body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>{{ len(ret_items) }} query entities in total.</p>
+  <ul>
+    {% for ret_item in sorted(ret_items, key=lambda x:int(x.id)) %}
+    <li>
+      <a href="/ent/{{ ret_item.id }}">{{ ret_item.ent }}</a>
+    </li>
+    {% end %}
+  </ul>
+</body>
+</html>

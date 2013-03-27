@@ -56,6 +56,10 @@ def parse_json(json_file):
     g_dist_hash[g_cur_idx] = {}
 
     query = dump_json[index]['query']
+    g_rel_ent_dist_db.hset(RedisDB.query_ent_hash, index, query)
+    print 'Query: %s %s' % (index, query)
+    continue
+
     for rev_id in dump_json[index]['revisions']:
       revid = dump_json[index]['revisions'][rev_id]['revid']
       g_timestamp = dump_json[index]['revisions'][rev_id]['timestamp']
@@ -72,6 +76,7 @@ def parse_json(json_file):
         traceback.print_exc(file=sys.stdout)
         print '-' * 60
         pass
+
 
     g_rel_ent_dist_db.rpush(RedisDB.query_ent_list, index)
 
@@ -106,6 +111,7 @@ def wikipediaLinkHook(parser_env, namespace, body):
   wiki_url_base = 'http://en.wikipedia.org/wiki/'
   url = wiki_url_base + href
 
+  # ignore long entities
   if href.__len__() > 50:
     return ''
 
