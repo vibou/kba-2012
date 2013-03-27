@@ -84,6 +84,9 @@ class DumpWikipedia():
 
         for rev in revisions:
           rev_hash = {}
+          # check whether the content field exists
+          if '*' not in rev:
+            continue
           rev_hash['timestamp'] = rev['timestamp']
           rev_hash['text'] = rev['*']
           rev_hash['revid'] = rev['revid']
@@ -110,7 +113,7 @@ class DumpWikipedia():
 
   def save_json(self, json_file):
     '''
-    Serilize the json data into file
+    Serialize the json data into file
     '''
     try:
       with open(json_file, 'w') as f:

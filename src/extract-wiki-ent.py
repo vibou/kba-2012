@@ -1,6 +1,6 @@
 #!/usr/bin/python
 '''
-Prase the WikiPedia page of KBA track query entities, extract the entities from the
+Parse the WikiPedia page of KBA track query entities, extract the entities from the
 internal links in the page
 
 extract-wiki-ent.py <query>
