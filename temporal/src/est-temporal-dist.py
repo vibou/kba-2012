@@ -26,6 +26,7 @@ from config import RedisDB
 g_cur_idx = 0
 g_dist_hash = {}
 g_timestamp = ''
+g_rev_hash = {}
 
 g_rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
     db=RedisDB.rel_ent_dist_db)
@@ -54,17 +55,20 @@ def parse_json(json_file):
   for index in sorted_index:
     g_cur_idx = index
     g_dist_hash[g_cur_idx] = {}
+    g_rev_hash[g_cur_idx] = {}
 
     query = dump_json[index]['query']
     g_rel_ent_dist_db.hset(RedisDB.query_ent_hash, index, query)
-    print 'Query: %s %s' % (index, query)
-    continue
+    #print 'Query: %s %s' % (index, query)
+    #continue
 
     for rev_id in dump_json[index]['revisions']:
       revid = dump_json[index]['revisions'][rev_id]['revid']
       g_timestamp = dump_json[index]['revisions'][rev_id]['timestamp']
       text = dump_json[index]['revisions'][rev_id]['text']
       #print '%s %s %s' % (query, revid, timestamp)
+
+      g_rev_hash[g_cur_idx][g_timestamp] = revid
 
       try:
         html = parse(text)
@@ -77,7 +81,6 @@ def parse_json(json_file):
         print '-' * 60
         pass
 
-
     g_rel_ent_dist_db.rpush(RedisDB.query_ent_list, index)
 
     sorted_ts = g_dist_hash[index].keys()
@@ -87,16 +90,20 @@ def parse_json(json_file):
 
     # for each month, save the number of related entities
     last_num = 0
+    last_revid = 0
     last_dt_str = datetime.datetime.strptime(sorted_ts[0],
         '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m')
     for ts in sorted_ts:
+      revid = g_rev_hash[index][ts]
+
       dt_str = datetime.datetime.strptime(ts, '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m')
       if dt_str != last_dt_str:
         hash_key = 'query-%s' % index
-        g_rel_ent_dist_db.hset(hash_key, dt_str, last_num)
-        print '%s %s %s %d' % (index, query, dt_str, last_num)
+        g_rel_ent_dist_db.hset(hash_key, last_dt_str, last_num)
+        print '%s %s %s %s %d' % (index, query, last_dt_str, last_revid, last_num)
 
       last_num = len(g_dist_hash[index][ts].keys())
+      last_revid = revid
       last_dt_str = dt_str
       #print '%s %s %d' %(query, ts, rel_ent_num)
 
