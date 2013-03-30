@@ -3,6 +3,11 @@
 For a given entity, this script will parse the dump of all revisions, and
 generate the temporal distrubiton of related entities
 
+For each query entity, the program will iterate over all the revisions of
+Wikipedia, extract the related entities, and save it to DB.
+
+The related entities from each revision will be used for filtering later.
+
 est-temporal-dist.py <dump>
 '''
 
@@ -89,22 +94,37 @@ def parse_json(json_file):
       '%Y-%m-%dT%H:%M:%SZ'))
 
     # for each month, save the number of related entities
+    # as well as the related entities
     last_num = 0
     last_revid = 0
+    last_ts = ''
     last_dt_str = datetime.datetime.strptime(sorted_ts[0],
         '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m')
+
     for ts in sorted_ts:
       revid = g_rev_hash[index][ts]
 
       dt_str = datetime.datetime.strptime(ts, '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m')
       if dt_str != last_dt_str:
         hash_key = 'query-%s' % index
+
+        # save the number of related entities for last month
         g_rel_ent_dist_db.hset(hash_key, last_dt_str, last_num)
         print '%s %s %s %s %d' % (index, query, last_dt_str, last_revid, last_num)
+
+        # save the related entities for last month
+        ent_list = []
+        for ent in g_dist_hash[index][last_ts]:
+          ent_list.append(ent)
+
+        ent_str = '='.join(ent_list)
+        hash_key = 'query-rel-ent-%s' % index
+        g_rel_ent_dist_db.hset(hash_key, last_dt_str, ent_str)
 
       last_num = len(g_dist_hash[index][ts].keys())
       last_revid = revid
       last_dt_str = dt_str
+      last_ts = ts
       #print '%s %s %d' %(query, ts, rel_ent_num)
 
     #return

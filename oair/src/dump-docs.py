@@ -50,11 +50,12 @@ class FuzzyMatch():
   '''
 
   _doc_hash = {}
-  _write_to_db = False
-  #_write_to_db = True
+  #_write_to_db = False
+  _write_to_db = True
 
   _oair_doc_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.oair_doc_test_db)
+      db=RedisDB.oair_doc_train_db)
+      #db=RedisDB.oair_doc_test_db)
 
   def parse_doc_list(self, doc_list_file):
     '''

@@ -36,7 +36,7 @@ class DumpWikipedia():
   The URL template to dump the content in JSON.
   All the parameters of Wikipedia API can be found at
 
-    http://www.mediawiki.org/wiki/API%3aProperties#Revisions%3a_Example
+  http://www.mediawiki.org/wiki/API%3aProperties#Revisions%3a_Example
   '''
   WIKI_API_URL = 'http://en.wikipedia.org/w/api.php?'\
                   'action=query&prop=revisions&rvprop=content|timestamp|ids'\
