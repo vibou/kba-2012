@@ -20,9 +20,7 @@ import traceback
 import gzip
 import json
 import time
-import copy
-import hashlib
-import subprocess
+import datetime
 from collections import defaultdict
 from cStringIO import StringIO
 
@@ -41,7 +39,7 @@ class WikiMatch():
   Apply exact matching
   '''
 
-  _ret_item_list = []
+  _doc_item_list = []
 
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       #db=RedisDB.oair_doc_train_db)
@@ -82,125 +80,110 @@ class WikiMatch():
 
     return str.lower()
 
-  def load_wiki_ent(self):
-    num = self._wiki_ent_list_db.llen(RedisDB.wiki_ent_list)
-    if 0 == num:
-      print 'no wiki_ent found'
-      return
-
-    ent_item_list = self._wiki_ent_list_db.lrange(RedisDB.wiki_ent_list, 0, num)
-    ent_items = []
-
-    ## initialize the dictionary with list as elements
-    ## see http://stackoverflow.com/questions/960733/python-creating-a-dictionary-of-lists
-    self._wiki_ent_hash = defaultdict(list)
-    for ent_id in ent_item_list:
-      keys = ['id', 'query', 'ent', 'url']
-      db_item = self._wiki_ent_list_db.hmget(ent_id, keys)
-      query = db_item[1]
-      ent = db_item[2]
-      ent = self.format_query(ent)
-      self._wiki_ent_hash[query].append(ent)
-
-  def calc_score(self, qid, doc):
+  def calc_score(self, query, doc, rel_ent_list):
     '''
     Calculate the score of a document w.r.t. the given query
     '''
-    query = self._query_hash[qid]
-    org_query = self._org_query_hash[qid]
 
     score = 0
+
     ## first, calculate it with the query entity
     ## use the query entity as the regex to apply exact match
-    if re.search(query, doc, re.I | re.M):
-      score = score + QUERY_ENT_MATCH_SCORE
+    #query_str = ' %s ' % query
+    #if re.search(query_str, doc, re.I | re.M):
+    score = score + QUERY_ENT_MATCH_SCORE
 
-    if org_query in self._wiki_ent_hash:
-      for ent in self._wiki_ent_hash[org_query]:
-        ent_str = ' %s ' %(ent)
-        if re.search(ent_str, doc, re.I | re.M):
-          ## change to count match once to count the total number of matches
-          match_list = re.findall(ent_str, doc, re.I | re.M)
-          score = score + WIKI_ENT_MATCH_SCORE * len(match_list)
-    else:
-      print 'I can not find the query [%s] in self._wiki_ent_hash' %org_query
+    for ent in rel_ent_list:
+      ent = self.format_query(ent)
+      ent_str = ' %s ' % ent
+      if re.search(ent_str, doc, re.I | re.M):
+        ## change to count match once to count the total number of matches
+        match_list = re.findall(ent_str, doc, re.I | re.M)
+        score = score + WIKI_ENT_MATCH_SCORE * len(match_list)
 
     return score
 
-  def process_stream_item(self, org_query, fname, stream_id, stream_data):
+  def process_data(self, query_id, save_dir):
     '''
-    process the streaming item: applying exact match for each of the query
-    entity
+    process the streaming item one by one
     '''
 
-    if org_query in self._query2id_hash:
-      qid = self._query2id_hash[org_query]
-    else:
-      print 'Invalid query: [%s].\nNO qid found.' %query
-      return
+    # first, get the current query
+    org_query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
+    query = self.format_query(org_query)
 
-    new_stream_data = self.sanitize(stream_data)
-    query = self._query_hash[qid]
+    hash_key = 'query-rel-ent-%s' % query_id
+    dt_list = self._rel_ent_dist_db.hkeys(hash_key)
+    dt_list.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
 
-    try:
-      score = self.calc_score(qid, new_stream_data)
+    # for each revision (i.e. a list of related entities), estimate relevance
+    # score for each of the document
+    for dt in dt_list:
+      rel_ent_str = self._rel_ent_dist_db.hget(hash_key, dt)
+      rel_ent_list = rel_ent_str.split('=')
 
-      #id = self._wiki_match_db.llen(RedisDB.ret_item_list)
-      id = 0
-      id = id + 1
-      #self._wiki_match_db.rpush(RedisDB.ret_item_list, id)
+      ret_item_list = []
+      for doc_item in self._doc_item_list:
+        stream_data = doc_item['stream_data']
+        ret_item = {}
+        ret_item['query'] = org_query
+        ret_item['stream_id'] = doc_item['stream_id']
 
-      ## create a hash record
-      ret_item = {'id' : id}
-      ret_item['query'] = org_query
-      ret_item['file'] = fname
-      ret_item['stream_id'] = stream_id
-      ret_item['stream_data'] = stream_data
-      ret_item['score'] = score
-      #self._wiki_match_db.hmset(id, ret_item)
+        try:
+          score = self.calc_score(query, stream_data, rel_ent_list)
+          ret_item['score'] = score
 
-      ## verbose output
-      print 'Match: %d - %s - %s - %d' %(id, org_query, stream_id, score)
-      #print '%s %s %d' %(org_query, stream_id, score)
-    except:
-      # Catch any unicode errors while printing to console
-      # and just ignore them to avoid breaking application.
-      print "Exception in process_stream_item()"
-      print '-'*60
-      traceback.print_exc(file=sys.stdout)
-      print '-'*60
-      pass
+        except:
+          # Catch any unicode errors while printing to console
+          # and just ignore them to avoid breaking application.
+          print "Exception in process_stream_item()"
+          print '-'*60
+          traceback.print_exc(file=sys.stdout)
+          print '-'*60
+          pass
+
+      # now save the file for this revision
+      save_file = os.path.join(save_dir, query_id, dt)
+      print 'Saving %s' % save_file
+      try:
+        with open(save_file, 'w') as f:
+          for ret_item in ret_item_list:
+            f.write('Match: 1 - %s - %s - %s' %(ret_item['query'],
+            ret_item['stream_id'], ret_item['score']))
+      except IOError as e:
+        print 'Failed to open file: %s' %save_file
 
   def load_data(self, query_id):
     '''
-    Parse all the documents which has exact match with the query entity
+    Load all the documents which has exact match with the query entity
     '''
-
-    # first, get the query
-    query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
-
     num = self._exact_match_db.llen(RedisDB.ret_item_list)
     if 0 == num:
-      print 'no ret_item found'
+      print 'no doc_item found'
       return
 
-    ret_item_list = self._exact_match_db.lrange(RedisDB.ret_item_list, 0, num)
-    for ret_id in ret_item_list:
-      ret_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
-      the_ret_item = self._exact_match_db.hmget(ret_id, ret_item_keys)
+    # first, get the current query
+    query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
 
-      ret_item = {}
-      ret_item['id'] = the_ret_item[0]
-      ret_item['query'] = the_ret_item[1]
-      ret_item['file'] = the_ret_item[2]
-      ret_item['stream_id'] = the_ret_item[3]
-      ret_item['stream_data'] = the_ret_item[4]
+    print 'Loading documents for query: %s' % query
 
-      # for one process, we only handle the documents for one query only
-      if ret_item['query'] != query:
+    doc_item_list = self._exact_match_db.lrange(RedisDB.ret_item_list, 0, num)
+    for ret_id in doc_item_list:
+      doc_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']
+      db_item = self._exact_match_db.hmget(ret_id, doc_item_keys)
+
+      doc_item = {}
+      doc_item['id'] = db_item[0]
+      doc_item['query'] = db_item[1]
+      doc_item['file'] = db_item[2]
+      doc_item['stream_id'] = db_item[3]
+      doc_item['stream_data'] = self.sanitize(db_item[4])
+
+      # for one process, we only handle the documents for the current query only
+      if doc_item['query'] != query:
         continue
 
-      self._ret_item_list.append(ret_item)
+      self._doc_item_list.append(doc_item)
 
 def main():
   import argparse
@@ -211,7 +194,7 @@ def main():
 
   match = WikiMatch()
   match.load_data(args.query_id)
-  match.process_data(args.save_dir)
+  match.process_data(args.query_id, args.save_dir)
 
 if __name__ == '__main__':
   try:
