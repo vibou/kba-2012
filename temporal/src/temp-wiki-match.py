@@ -132,6 +132,7 @@ class WikiMatch():
         try:
           score = self.calc_score(query, stream_data, rel_ent_list)
           ret_item['score'] = score
+          ret_item_list.append(ret_item)
 
         except:
           # Catch any unicode errors while printing to console
@@ -148,8 +149,8 @@ class WikiMatch():
       try:
         with open(save_file, 'w') as f:
           for ret_item in ret_item_list:
-            f.write('Match: 1 - %s - %s - %s' %(ret_item['query'],
-            ret_item['stream_id'], ret_item['score']))
+            f.write('%s %s %s\n' %(ret_item['query'], ret_item['stream_id'],
+              ret_item['score']))
       except IOError as e:
         print 'Failed to open file: %s' %save_file
 
