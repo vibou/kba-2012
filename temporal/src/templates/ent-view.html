@@ -42,11 +42,11 @@ $(function () {
     
             yAxis: [{ // left y axis
                 title: {
-                    text: null
+                    text: '# of Related Entities'
                 },
                 labels: {
                     align: 'left',
-                    x: 3,
+                    x: 0,
                     y: 16,
                     formatter: function() {
                         return Highcharts.numberFormat(this.value, 0);
@@ -54,18 +54,17 @@ $(function () {
                 },
                 showFirstLabel: false
             }, { // right y axis
-                linkedTo: 0,
                 gridLineWidth: 0,
                 opposite: true,
                 title: {
-                    text: null
+                    text: 'F score'
                 },
                 labels: {
                     align: 'right',
-                    x: -3,
+                    x: 0,
                     y: 16,
                     formatter: function() {
-                        return Highcharts.numberFormat(this.value, 0);
+                        return this.value;
                     }
                 },
                 showFirstLabel: false
@@ -110,13 +109,19 @@ $(function () {
             },
     
             series: [{
-                name: '{{ ent_id }}',
+                name: 'Related Entities',
                 lineWidth: 4,
                 marker: {
                     radius: 4
                 }
             }, {
-                name: 'reference'
+                name: 'optimal C-F',
+                color: '#AA4643',
+                yAxis: 1
+            }, {
+                name: 'optimal CR-F',
+                color: '#89A54E',
+                yAxis: 1
             }]
         };
     
@@ -132,6 +137,8 @@ $(function () {
     
                 // set up the two data series
                 mentionValues = [];
+                evalValues = [];
+                crEvalValues = [];
     
             // inconsistency
             if (typeof tsv !== 'string') {
@@ -150,7 +157,7 @@ $(function () {
                 // all data lines start with a double quote
                 if (listen) {
                     line = line.split(/\t/);
-                    if(2 != line.length){
+                    if(4 != line.length){
                       return;
                     }
                     date = Date.parse(line[0]);
@@ -159,10 +166,22 @@ $(function () {
                         date,
                         parseInt(line[1].replace(',', ''), 10)
                     ]);
+                    
+                    evalValues.push([
+                        date,
+                        parseFloat(line[2])
+                    ]);
+
+                    crEvalValues.push([
+                        date,
+                        parseFloat(line[3])
+                    ]);
                 }
             });
     
             options.series[0].data = mentionValues;
+            options.series[1].data = evalValues;
+            options.series[2].data = crEvalValues;
     
             chart = new Highcharts.Chart(options);
         });

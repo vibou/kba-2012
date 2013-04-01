@@ -13,6 +13,11 @@ from __future__ import division
 
 END_OF_2012 = 1325375999
 
+QREL_FILE = 'eval/after.txt'
+TRAIN_RET_DIR = 'ret/train/'
+TEST_RET_DIR = 'ret/test/'
+g_cutoff_step = 1
+
 import os
 import csv
 import gzip
@@ -24,12 +29,7 @@ from collections import defaultdict
 import redis
 from config import RedisDB
 
-g_qrel_file = 'eval/after.txt'
-g_train_ret_dir = 'ret/train/'
-g_test_ret_dir = 'ret/test/'
-g_cutoff_step = 1
-
-g_rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+REL_ENT_DIST_DB = redis.Redis(host=RedisDB.host, port=RedisDB.port,
     db=RedisDB.rel_ent_dist_db)
 
 def getMedian(numericValues):
@@ -110,8 +110,8 @@ def performance_metrics (CM, debug=False):
         Scores[cutoff]['F'] = fscore(Scores[cutoff]['P'], Scores[cutoff]['R'])
 
         ## Scaled Utility from http://trec.nist.gov/pubs/trec11/papers/OVER.FILTERING.pdf
-        Scores[cutoff]['SU'] = scaled_utility(CM[cutoff]['TP'], CM[cutoff]['FP']
-            CM[cutoff]['FN'])
+        Scores[cutoff]['SU'] = scaled_utility(CM[cutoff]['TP'],
+            CM[cutoff]['FP'], CM[cutoff]['FN'])
     return Scores
 
 def score_confusion_matrix (path_to_run_file, annotation, debug):
@@ -136,13 +136,16 @@ def score_confusion_matrix (path_to_run_file, annotation, debug):
         run_file = open(path_to_run_file, 'r')
 
     ## Create a dictionary containing the confusion matrix (CM)
-    cutoffs = range(100, 200, 1)
+    cutoffs = range(99, 200, 1)
     CM = dict()
 
     ## count the total number of assertions per entity
     num_assertions = {}
 
     query = ''
+
+    for cutoff in cutoffs:
+        CM[cutoff] = dict(TP=0, FP=0, FN=0, TN=0)
 
     ## Iterate through every row of the run
     for onerow in run_file:
@@ -169,9 +172,6 @@ def score_confusion_matrix (path_to_run_file, annotation, debug):
             num_assertions[urlname]['in_TTR'] += 1
         else:
             num_assertions[urlname]['in_ETR'] += 1
-
-        for cutoff in cutoffs:
-          CM[cutoff] = dict(TP=0, FP=0, FN=0, TN=0)
 
         in_annotation_set = (stream_id, urlname) in annotation
 
@@ -215,8 +215,7 @@ def score_confusion_matrix (path_to_run_file, annotation, debug):
     for cutoff in CM:
         ## Then subtract the number of TP at each cutoffs
         ## (since FN+TP==True things in annotation set)
-        CM[cutoff]['FN'] = annotation_positives[query]
-          - CM[cutoff]['TP']
+        CM[cutoff]['FN'] = annotation_positives[query] - CM[cutoff]['TP']
 
     if debug:
         print 'showing assertion counts:'
@@ -232,6 +231,7 @@ def load_annotation (path_to_annotation_file, include_relevant, is_training):
     include_relevant: true to include docs marked relevant and central
     '''
     annotation_file = csv.reader(open(path_to_annotation_file, 'r'), delimiter='\t')
+    print 'Loading %s' % path_to_annotation_file
 
     thresh = 0
     if include_relevant:
@@ -254,6 +254,9 @@ def load_annotation (path_to_annotation_file, include_relevant, is_training):
         if (not is_training) and (timestamp <= END_OF_2012):
             continue
 
+        if (is_training) and (timestamp > END_OF_2012):
+            continue
+
         ## Add the stream_id and urlname to a hashed dictionary
         ## 0 means that its not central 1 means that it is central
 
@@ -266,7 +269,7 @@ def load_annotation (path_to_annotation_file, include_relevant, is_training):
 
     return annotation
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description=__doc__, usage=__doc__)
     parser.add_argument(
         '--use-micro-averaging', default=False, action='store_true', dest='micro_is_true',
@@ -281,22 +284,18 @@ if __name__ == '__main__':
     parser.add_argument('query_id')
     args = parser.parse_args()
 
-    global g_qrel_file
     ## Load in the annotation data, including both training and testing data
-    train_annotation = load_annotation(g_qrel_file, args.include_relevant,
+    train_annotation = load_annotation(QREL_FILE, args.include_relevant,
         True)
-    test_annotation = load_annotation(g_qrel_file, args.include_relevant,
+    test_annotation = load_annotation(QREL_FILE, args.include_relevant,
         False)
 
-    global g_train_ret_dir
-    global g_test_ret_dir
-    train_dir = os.path.join(g_train_ret_dir, args.query_id)
-    test_dir = os.path.join(g_test_ret_dir, args.query_id)
+    train_dir = os.path.join(TRAIN_RET_DIR, args.query_id)
+    test_dir = os.path.join(TEST_RET_DIR, args.query_id)
 
-    global g_rel_ent_dist_db
-    query = g_rel_ent_dist_db.hget(RedisDB.query_ent_hash, args.query_id)
+    query = REL_ENT_DIST_DB.hget(RedisDB.query_ent_hash, args.query_id)
 
-    opt_F_hash = []
+    opt_F_hash = {}
     ts_list = os.listdir(train_dir)
     ts_list.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
     for ts in ts_list:
@@ -324,13 +323,22 @@ if __name__ == '__main__':
             opt_F = F
             opt_cutoff = cutoff
 
-        opt_F = test_scores[opt_cutoff]
+        opt_F = test_scores[opt_cutoff]['F']
         opt_F_hash[ts] = opt_F
-        print '%s %f' % (ts, opt_F)
+        #print '%s %d %f' % (ts, opt_cutoff, opt_F)
 
+    #return
     # write back to DB
     print 'Writing back to DB'
-    hash_key = 'query-opt-F'
+    #hash_key = 'query-opt-C-F-%s' % args.query_id
+    hash_key = 'query-opt-CR-F-%s' % args.query_id
     for ts in ts_list:
         opt_F = opt_F_hash[ts]
-        g_rel_ent_dist_db.hset(hash_key, ts, str(opt_F))
+        REL_ENT_DIST_DB.hset(hash_key, ts, str(opt_F))
+
+if __name__ == '__main__':
+  try:
+      main()
+  except KeyboardInterrupt:
+      print '\nGoodbye!'
+

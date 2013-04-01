@@ -42,8 +42,8 @@ class WikiMatch():
   _doc_item_list = []
 
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      #db=RedisDB.oair_doc_train_db)
-      db=RedisDB.oair_doc_test_db)
+      db=RedisDB.oair_doc_train_db)
+      #db=RedisDB.oair_doc_test_db)
 
   _rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.rel_ent_dist_db)

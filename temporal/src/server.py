@@ -91,20 +91,49 @@ class EntDistHandler(BaseHandler):
     hash_key = 'query-%s' % ent_id
     keys = self._rel_ent_dist_db.hkeys(hash_key)
     if 0 == len(keys):
-      msg = 'no data found'
+      msg = 'no dist data found'
+      self.render("error.html", msg=msg)
+      return
+
+    eval_hash_key = 'query-opt-C-F-%s' % ent_id
+    #eval_hash_key = 'query-opt-CR-F-%s' % ent_id
+    eval_keys = self._rel_ent_dist_db.hkeys(eval_hash_key)
+    if 0 == len(eval_keys):
+      msg = 'no eval_dist data found'
+      self.render("error.html", msg=msg)
+      return
+
+    if set(keys) != set(eval_keys):
+      msg = 'dist and eval_dist data are not consistent'
+      self.render("error.html", msg=msg)
+      return
+
+    cr_eval_hash_key = 'query-opt-CR-F-%s' % ent_id
+    cr_eval_keys = self._rel_ent_dist_db.hkeys(cr_eval_hash_key)
+    if 0 == len(cr_eval_keys):
+      msg = 'no cr_eval_dist data found'
+      self.render("error.html", msg=msg)
+      return
+
+    if set(keys) != set(cr_eval_keys):
+      msg = 'dist and cr_eval_dist data are not consistent'
       self.render("error.html", msg=msg)
       return
 
     ## sort the keys by date: http://stackoverflow.com/q/2589479
     keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
     db_item = self._rel_ent_dist_db.hmget(hash_key, keys)
+    eval_db_item = self._rel_ent_dist_db.hmget(eval_hash_key, keys)
+    cr_eval_db_item = self._rel_ent_dist_db.hmget(cr_eval_hash_key, keys)
 
     line = 'date\tclose\n'
     self.write(line)
 
-    for idx, val in enumerate(db_item):
-      val = db_item[idx]
-      line = '%s\t%s\n' %(keys[idx], val)
+    for idx, dist_val in enumerate(db_item):
+      dist_val = db_item[idx]
+      eval_val = eval_db_item[idx]
+      cr_eval_val = cr_eval_db_item[idx]
+      line = '%s\t%s\t%s\t%s\n' %(keys[idx], dist_val, eval_val, cr_eval_val)
       self.write(line)
 
 class Application(tornado.web.Application):
