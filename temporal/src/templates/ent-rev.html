@@ -1,0 +1,16 @@
+<html>
+<head>
+  <title>{{ ent }} - {{ date }}</title>
+</head>
+
+<body style="font-family:Monaco, monospace; font-size:80%;">
+  <p>{{ len(rel_ent_list) }} related entities in total.</p>
+  <ul>
+    {% for rel_ent in sorted(rel_ent_list) %}
+    <li>
+      <a target="_blank" href="http:///en.wikipedia.org/wiki/{{ rel_ent }}">{{ rel_ent }}</a>
+    </li>
+    {% end %}
+  </ul>
+</body>
+</html>

@@ -73,22 +73,40 @@ class EntViewHandler(BaseHandler):
       self.render("error.html", msg=msg)
       return
 
-    ## retrieve the basic information of the relevant entity
-    '''
-    db_keys = ['id', 'query', 'ent', 'url']
-    db_item = self._wiki_ent_list_db.hmget(ent_id, db_keys)
+    ## retrieve the list of revisions
+    rel_ent_hash_key = 'query-rel-ent-%s' % ent_id
+    rel_ent_keys = self._rel_ent_dist_db.hkeys(rel_ent_hash_key)
 
-    item = DictItem()
-    item['id'] = db_item[0]
-    item['query'] = db_item[1]
-    item['ent'] = db_item[2]
-    item['url'] = db_item[3]
-    item['num'] = len(keys)
-    '''
+    ## sort the keys by date: http://stackoverflow.com/q/2589479
+    rel_ent_keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
+    db_item = self._rel_ent_dist_db.hmget(rel_ent_hash_key, rel_ent_keys)
+
+    date_list = []
+
+    for idx, rel_ent_str in enumerate(db_item):
+      item = DictItem()
+      item['date'] = rel_ent_keys[idx]
+      item['num'] = len(rel_ent_str.split('='))
+      date_list.append(item)
 
     ent = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
+    self.render("ent-view.html", ent_id=ent_id, ent=ent, date_list=date_list)
 
-    self.render("ent-view.html", ent_id=ent_id, ent=ent)
+class EntRevHandler(BaseHandler):
+  def get(self, ent_id, date):
+    ## retrieve the list of revisions
+    rel_ent_hash_key = 'query-rel-ent-%s' % ent_id
+    if not self._rel_ent_dist_db.hexists(rel_ent_hash_key, date):
+      msg = 'no data found'
+      self.render("error.html", msg=msg)
+      return
+
+    rel_ent_str = self._rel_ent_dist_db.hget(rel_ent_hash_key, date)
+    rel_ent_list = rel_ent_str.split('=')
+
+    ent = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
+    self.render("ent-rev.html", ent_id=ent_id, ent=ent, date=date,
+        rel_ent_list=rel_ent_list)
 
 class EntDistHandler(BaseHandler):
   def get(self, ent_id):
@@ -164,6 +182,7 @@ class Application(tornado.web.Application):
       (r"/ent", EntIndexHandler),
       (r"/ent/(\d+)", EntViewHandler),
       (r"/ent/dist/(\d+)", EntDistHandler),
+      (r"/ent/(\d+)/(\d+-\d+)", EntRevHandler),
     ]
 
     settings = dict(

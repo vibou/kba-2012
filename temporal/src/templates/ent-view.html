@@ -216,5 +216,15 @@ $(function () {
 <p><a href="/ent">&lt;- Return to list</a></p>
 <a target = "_blank" href="http://en.wikipedia.org/wiki/{{ ent }}">Wikipedia page</a>
 <div id="container" style="min-width: 400px; height: 700px; margin: 0 auto"></div>
+<div id="date_list">
+  <p>{{ len(date_list) }} revisions in total.</p>
+  <ul>
+    {% for item in date_list %}
+    <li>
+      <a href="/ent/{{ ent_id }}/{{ item.date }}">{{ item.date }}</a> - {{ item.num }}
+    </li>
+    {% end %}
+  </ul>
+</div>
 </body>
 </html>
