@@ -101,6 +101,8 @@ def parse_json(json_file):
     last_dt_str = datetime.datetime.strptime(sorted_ts[0],
         '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m')
 
+    rel_ent_hash = {}
+    irrel_ent_hash = {}
     for ts in sorted_ts:
       revid = g_rev_hash[index][ts]
 
@@ -109,8 +111,20 @@ def parse_json(json_file):
         # save the related entities for last month
         ent_list = []
         for ent in g_dist_hash[index][last_ts]:
+          # check the cache first
+          if ent in rel_ent_hash:
+            ent_list.append(ent)
+            continue
+
+          if ent in irrel_ent_hash:
+            continue
+
+          # update the cache accordingly
           if in_rel_doc(query, ent):
             ent_list.append(ent)
+            rel_ent_hash[ent] = 1
+          else:
+            irrel_ent_hash[ent] = 1
 
         # save the number of related entities for last month
         hash_key = 'query-rel-ent-num-%s' % index
@@ -179,6 +193,7 @@ def load_data():
     print 'no doc_item found'
     return
 
+  print 'Loading %d documents' % num
   doc_item_list = g_exact_match_db.lrange(RedisDB.ret_item_list, 0, num)
   for ret_id in doc_item_list:
     doc_item_keys = ['id', 'query', 'file', 'stream_id', 'stream_data']

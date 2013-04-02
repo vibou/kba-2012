@@ -109,11 +109,19 @@ $(function () {
             },
     
             series: [{
-                name: 'Related Entities',
+                name: 'Entities',
                 lineWidth: 4,
                 marker: {
                     radius: 4
                 }
+            }, {
+                name: 'Related Entities',
+                lineWidth: 4,
+                marker: {
+                    radius: 4
+                },
+                color: '#00FF00',
+                yAxis: 0
             }, {
                 name: 'optimal C-F',
                 color: '#AA4643',
@@ -136,7 +144,8 @@ $(function () {
                 date,
     
                 // set up the two data series
-                mentionValues = [];
+                distValues = [];
+                relNumValues = [];
                 evalValues = [];
                 crEvalValues = [];
     
@@ -157,32 +166,37 @@ $(function () {
                 // all data lines start with a double quote
                 if (listen) {
                     line = line.split(/\t/);
-                    if(4 != line.length){
+                    if(5 != line.length){
                       return;
                     }
                     date = Date.parse(line[0]);
     
-                    mentionValues.push([
+                    distValues.push([
                         date,
                         parseInt(line[1].replace(',', ''), 10)
                     ]);
                     
+                    relNumValues.push([
+                        date,
+                        parseInt(line[2].replace(',', ''), 10)
+                    ]);
+                    
                     evalValues.push([
                         date,
-                        parseFloat(line[2])
+                        parseFloat(line[3])
                     ]);
 
                     crEvalValues.push([
                         date,
-                        parseFloat(line[3])
+                        parseFloat(line[4])
                     ]);
                 }
             });
     
-            options.series[0].data = mentionValues;
-            options.series[1].data = evalValues;
-            options.series[2].data = crEvalValues;
-    
+            options.series[0].data = distValues;
+            options.series[1].data = relNumValues;
+            options.series[2].data = evalValues;
+            options.series[3].data = crEvalValues; 
             chart = new Highcharts.Chart(options);
         });
     });

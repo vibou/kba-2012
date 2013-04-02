@@ -35,6 +35,10 @@ class BaseHandler(tornado.web.RequestHandler):
   def _rel_ent_dist_db(self):
     return self.application._rel_ent_dist_db
 
+  @property
+  def _test_db(self):
+    return self.application._test_db
+
 class HomeHandler(BaseHandler):
   def get(self):
     url = '/ent'
@@ -95,6 +99,18 @@ class EntDistHandler(BaseHandler):
       self.render("error.html", msg=msg)
       return
 
+    rel_num_hash_key = 'query-rel-ent-num-%s' % ent_id
+    rel_num_keys = self._test_db.hkeys(rel_num_hash_key)
+    if 0 == len(rel_num_keys):
+      msg = 'no rel_num data found'
+      self.render("error.html", msg=msg)
+      return
+
+    if set(keys) != set(rel_num_keys):
+      msg = 'dist and rel_num data are not consistent'
+      self.render("error.html", msg=msg)
+      return
+
     eval_hash_key = 'query-opt-C-F-%s' % ent_id
     #eval_hash_key = 'query-opt-CR-F-%s' % ent_id
     eval_keys = self._rel_ent_dist_db.hkeys(eval_hash_key)
@@ -122,7 +138,10 @@ class EntDistHandler(BaseHandler):
 
     ## sort the keys by date: http://stackoverflow.com/q/2589479
     keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
+
+    # retrieve from DB
     db_item = self._rel_ent_dist_db.hmget(hash_key, keys)
+    rel_num_db_item = self._test_db.hmget(rel_num_hash_key, keys)
     eval_db_item = self._rel_ent_dist_db.hmget(eval_hash_key, keys)
     cr_eval_db_item = self._rel_ent_dist_db.hmget(cr_eval_hash_key, keys)
 
@@ -131,9 +150,11 @@ class EntDistHandler(BaseHandler):
 
     for idx, dist_val in enumerate(db_item):
       dist_val = db_item[idx]
+      rel_num_val = rel_num_db_item[idx]
       eval_val = eval_db_item[idx]
       cr_eval_val = cr_eval_db_item[idx]
-      line = '%s\t%s\t%s\t%s\n' %(keys[idx], dist_val, eval_val, cr_eval_val)
+      line = '%s\t%s\t%s\t%s\t%s\n' %(keys[idx], dist_val, rel_num_val,
+          eval_val, cr_eval_val)
       self.write(line)
 
 class Application(tornado.web.Application):
@@ -155,6 +176,9 @@ class Application(tornado.web.Application):
     # global database connections for all handles
     self._rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.rel_ent_dist_db)
+
+    self._test_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+        db=RedisDB.test_db)
 
 def main():
   tornado.options.parse_command_line()
