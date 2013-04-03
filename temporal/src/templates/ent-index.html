@@ -9,6 +9,7 @@
     {% for ret_item in sorted(ret_items, key=lambda x:int(x.id)) %}
     <tr>
       <td align="right" width="10%">{{ ret_item.ent }}</td>
+      <td align="right" width="5%">{{ ret_item.id }}</td>
       <td align="center" width="15%">[<a href="/ent/{{ ret_item.id }}">Entities</a>]</td>
       <td align="center" width="15%">[<a href="/doc/{{ ret_item.id }}">Documents</a>]</td>
     </tr>
