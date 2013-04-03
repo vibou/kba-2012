@@ -36,6 +36,10 @@ class BaseHandler(tornado.web.RequestHandler):
     return self.application._rel_ent_dist_db
 
   @property
+  def _doc_db(self):
+    return self.application._doc_db
+
+  @property
   def _test_db(self):
     return self.application._test_db
 
@@ -175,6 +179,76 @@ class EntDistHandler(BaseHandler):
           eval_val, cr_eval_val)
       self.write(line)
 
+class DocListHandler(BaseHandler):
+  def get(self, ent_id):
+    num = self._doc_db.llen(RedisDB.ret_item_list)
+    if 0 == num:
+      msg = 'no doc item found'
+      self.render("error.html", msg=msg)
+      return
+
+    # get the query entity
+    ent = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
+
+    ret_item_list = self._doc_db.lrange(RedisDB.ret_item_list, 0, num)
+    ret_items = []
+
+    # we only select the documents associated with the query
+    for ret_id in ret_item_list:
+      ret_item_keys = ['id', 'query', 'stream_id']
+      db_item = self._doc_db.hmget(ret_id, ret_item_keys)
+
+      if ent != db_item[1]:
+        continue
+
+      ret_item = DictItem()
+      ret_item['id'] = db_item[0]
+      ret_item['query'] = db_item[1]
+      ret_item['stream_id'] = db_item[2]
+      ret_items.append(ret_item)
+
+    self.render("doc-list.html", ent=ent, ent_id=ent_id, ret_items=ret_items)
+
+class DocViewHandler(BaseHandler):
+  def get(self, ent_id, doc_id):
+    # get the query entity
+    ent = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
+
+    if not self._doc_db.exists(doc_id):
+      msg = 'Invalid document ID %s' % doc_id
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item_keys = ['id', 'query', 'stream_id']
+    db_item = self._doc_db.hmget(doc_id, ret_item_keys)
+
+    # make sure the document ID is associated with the query
+    if ent != db_item[1]:
+      msg = ' Invalid document ID for entity %s' % ent
+      self.render("error.html", msg=msg)
+      return
+
+    stream_id = db_item[2]
+
+    # now, list all the available revisions from Wikipedia page of the query entity
+    ## retrieve the list of revisions
+    rev_hash_key = 'query-rel-ent-%s' % ent_id
+    rev_keys = self._rel_ent_dist_db.hkeys(rev_hash_key)
+
+    ## sort the keys by date: http://stackoverflow.com/q/2589479
+    rev_keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
+    db_item = self._rel_ent_dist_db.hmget(rev_hash_key, rev_keys)
+
+    date_list = []
+    for idx, rel_ent_str in enumerate(db_item):
+      item = DictItem()
+      item['date'] = rev_keys[idx]
+      item['num'] = len(rel_ent_str.split('='))
+      date_list.append(item)
+
+    self.render("doc-view.html", ent_id=ent_id, ent=ent, doc_id=doc_id,
+        stream_id=stream_id, date_list=date_list)
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
@@ -183,6 +257,8 @@ class Application(tornado.web.Application):
       (r"/ent/(\d+)", EntViewHandler),
       (r"/ent/dist/(\d+)", EntDistHandler),
       (r"/ent/(\d+)/(\d+-\d+)", EntRevHandler),
+      (r"/doc/(\d+)", DocListHandler),
+      (r"/doc/(\d+)/(\d+)", DocViewHandler),
     ]
 
     settings = dict(
@@ -195,6 +271,9 @@ class Application(tornado.web.Application):
     # global database connections for all handles
     self._rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.rel_ent_dist_db)
+
+    self._doc_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+        db=RedisDB.oair_doc_test_db)
 
     self._test_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.test_db)

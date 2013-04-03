@@ -82,8 +82,14 @@ sub load_run(){
     chomp;
     next if /^$/;
 
-    my ($query, $did, $score) = split;
-    $run{$query}{$did} = $score;
+    my $num = scalar split;
+    if(3 == $num){
+      my ($query, $did, $score) = split;
+      $run{$query}{$did} = $score;
+    }else{
+      my ($did, $query) = split;
+      $run{$query}{$did} = 1;
+    }
   }
   close RUN;
 }

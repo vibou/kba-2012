@@ -50,8 +50,8 @@ class FuzzyMatch():
   '''
 
   _doc_hash = {}
-  #_write_to_db = False
-  _write_to_db = True
+  _write_to_db = False
+  #_write_to_db = True
 
   _oair_doc_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.oair_doc_train_db)
@@ -96,7 +96,7 @@ class FuzzyMatch():
     process the streaming item: applying exact match for each of the query
     entity
     '''
-    new_stream_data = self.sanitize(stream_data)
+    #new_stream_data = self.sanitize(stream_data)
 
     try:
       ## use the query entity as the regex to apply exact match

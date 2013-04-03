@@ -1,0 +1,17 @@
+<html>
+<head>
+  <title>[{{ ent }}] - document list</title>
+</head>
+
+<body style="font-family:sans-serif;">
+  <p><a href="/ent">&lt;- Return to list</a></p>
+  <p>{{ len(ret_items) }} documents in total for [{{ ent }}].</p>
+  <ul>
+    {% for ret_item in ret_items %}
+    <li>
+      <a href="/doc/{{ ent_id }}/{{ ret_item.id }}">{{ ret_item.stream_id }}</a>
+    </li>
+    {% end %}
+  </ul>
+</body>
+</html>

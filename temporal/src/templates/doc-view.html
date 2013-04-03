@@ -1,0 +1,21 @@
+<html>
+<head>
+  <title>[{{ ent }}] - revision list</title>
+</head>
+
+<body style="font-family:sans-serif;">
+  <p><a href="/ent">&lt;- Return to entity list</a></p>
+  <p><a href="/doc/{{ ent_id }}">&lt;- Return to document list</a></p>
+  <p<>Query: {{ ent }}</p>
+  <p>{{ len(date_list) }} revisions in total for 
+    <a href="/raw/{{ doc_id }}">[{{ stream_id }}]</a>.
+  </p>
+  <ul>
+    {% for item in date_list %}
+    <li>
+      <a href="/doc/{{ ent_id }}/{{ doc_id }}/{{ item.date }}">{{ item.date }}</a> - {{ item.num }}
+    </li>
+    {% end %}
+  </ul>
+</body>
+</html>

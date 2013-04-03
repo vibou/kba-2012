@@ -3,14 +3,16 @@
   <title>{{ title }}</title>
 </head>
 
-<body style="font-family:Monaco, monospace; font-size:80%;">
+<body style="font-family:sans-serif;">
   <p>{{ len(ret_items) }} query entities in total.</p>
-  <ul>
+  <table border="0" cellpadding="3" width="600">
     {% for ret_item in sorted(ret_items, key=lambda x:int(x.id)) %}
-    <li>
-      <a href="/ent/{{ ret_item.id }}">{{ ret_item.ent }}</a>
-    </li>
+    <tr>
+      <td align="right" width="10%">{{ ret_item.ent }}</td>
+      <td align="center" width="15%">[<a href="/ent/{{ ret_item.id }}">Entities</a>]</td>
+      <td align="center" width="15%">[<a href="/doc/{{ ret_item.id }}">Documents</a>]</td>
+    </tr>
     {% end %}
-  </ul>
+  </table>
 </body>
 </html>
