@@ -11,6 +11,8 @@ class RedisDB(object):
     rel_ent_dist_db = 0
     #rel_ent_dist_db = 1
 
+    edmap_db = 3
+
     test_db = 2
 
     oair_doc_train_db = 10
