@@ -8,7 +8,7 @@
   <p><a href="/doc/{{ ent_id }}">&lt;- Return to document list</a></p>
   <p<>Query: {{ ent }}</p>
   <p>{{ len(date_list) }} revisions in total for 
-    <a href="/raw/{{ doc_id }}">[{{ stream_id }}]</a>.
+    <a href="/raw/{{ doc_id }}">{{ stream_id }}</a>
   </p>
   <ul>
     {% for item in date_list %}

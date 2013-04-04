@@ -1,0 +1,25 @@
+<html>
+<head>
+  <title>[{{ query }}] - {{ date }}</title>
+  <style>
+  span.qent { color: blue; font-size: 25px;}
+  span.rent { color: red;  font-size: 25px;}
+  </style>
+</head>
+
+<body style="font-family:sans-serif;">
+  <div style="background:#EFEFEF no-repeat scroll; margin: 30px 10px;">
+  <p>stream_id: {{ stream_id }}</p>
+  <br/>
+  <p>Query: {{ query }}</p>
+  <br/>
+  <p>Ent Matched Num: {{ ent_match_sum }} ( {{ ent_uniq_match_sum }} )</p>
+  <br/>
+  <p>Wiki Revision Date: {{ date }}</p>
+  <br/>
+  </div>
+  <p>Body: </p>
+  <div id="wrapper" style="width: 600px">{% raw doc %}</div>
+
+</body>
+</html>

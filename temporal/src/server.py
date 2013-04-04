@@ -98,7 +98,7 @@ class EntViewHandler(BaseHandler):
 
 class EntRevHandler(BaseHandler):
   def get(self, ent_id, date):
-    ## retrieve the list of revisions
+    ## check whether this revision exists or not
     rel_ent_hash_key = 'query-rel-ent-%s' % ent_id
     if not self._rel_ent_dist_db.hexists(rel_ent_hash_key, date):
       msg = 'no data found'
@@ -249,6 +249,128 @@ class DocViewHandler(BaseHandler):
     self.render("doc-view.html", ent_id=ent_id, ent=ent, doc_id=doc_id,
         stream_id=stream_id, date_list=date_list)
 
+class DocRevViewHandler(BaseHandler):
+  def get(self, query_id, doc_id, date):
+    # retrieve query from DB
+    org_query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
+
+    # retrieve document from DB
+    if not self._doc_db.exists(doc_id):
+      msg = 'Invalid document ID %s' % doc_id
+      self.render("error.html", msg=msg)
+      return
+
+    ret_item_keys = ['id', 'query', 'stream_id', 'stream_data']
+    db_item = self._doc_db.hmget(doc_id, ret_item_keys)
+
+    # make sure the document ID is associated with the query
+    if org_query != db_item[1]:
+      msg = ' Invalid document ID for query %s' % org_query
+      self.render("error.html", msg=msg)
+      return
+
+    stream_id = db_item[2]
+    doc = db_item[3]
+
+    ## retrieve the related entities for this revision
+    rel_ent_hash_key = 'query-rel-ent-%s' % query_id
+    if not self._rel_ent_dist_db.hexists(rel_ent_hash_key, date):
+      msg = 'no revision data found for %s' %date
+      self.render("error.html", msg=msg)
+      return
+
+    rel_ent_str = self._rel_ent_dist_db.hget(rel_ent_hash_key, date)
+    rel_ent_list = rel_ent_str.split('=')
+
+    '''
+    Transfer the raw data to HTML
+    Basically the goal is to make sure each paragraph is embedded in <p></p>
+    '''
+    ## first, calculate it with the query entity
+    ## use the query entity as the regex to apply exact match
+    query = self.format_query(org_query)
+    query_str = '[\s\W]%s[\s\W]' % query
+    match = re.search(query, doc, re.I | re.M)
+    doc = unicode(doc, errors='ignore')
+    if match:
+      query_span = '<span class=\"qent\"> ' + query + ' </span>'
+      query_regex = ur'[\s\W]%s[\s\W]' %( query )
+      replacer = re.compile(query_regex, re.I | re.M)
+      doc = replacer.sub(query_span, doc)
+
+    ent_match_sum = 0
+    ent_uniq_match_sum = 0
+    for ent in rel_ent_list:
+      ent_str = '[\s\W]%s[\s\W]' % ent
+      if re.search(ent_str, doc, re.I | re.M):
+        ## change to count match once to count the total number of matches
+        match_list = re.findall(ent_str, doc, re.I | re.M)
+        ent_match_sum += len(match_list)
+        ent_uniq_match_sum += 1
+
+        ent_span = '<span class=\"rent\"> ' + ent + ' </span>'
+        ent_regex = ur'[\s\W]%s[\s\W]' %( ent )
+        replacer = re.compile(ent_regex, re.I | re.M)
+        doc = replacer.sub(ent_span, doc)
+
+    doc = self.raw2html(doc)
+    self.render("doc-rev-view.html", query_id=query_id, query=org_query, doc_id=doc_id,
+        stream_id=stream_id, date=date, doc=doc,
+        ent_match_sum = ent_match_sum, ent_uniq_match_sum=ent_uniq_match_sum)
+
+  def format_query(self, query):
+    '''
+    format the original query
+    '''
+    # remove parentheses
+    parentheses_regex = re.compile( '\(.*\)' )
+    query = parentheses_regex.sub( '', query)
+
+    ## replace non word character to space
+    non_word_regex = re.compile( '(\W+|\_+)' )
+    query = non_word_regex.sub( ' ', query)
+
+    ## compress multiple spaces
+    space_regex = re.compile ( '\s+' )
+    query = space_regex.sub( ' ', query)
+
+    ## remove leading space
+    space_regex = re.compile ( '^\s' )
+    query = space_regex.sub( '', query)
+
+    ## remove trailing space
+    space_regex = re.compile ( '\s$' )
+    query = space_regex.sub( '', query)
+
+    return query.lower()
+
+  '''
+  Transfer the raw data to HTML
+  Basically the goal is to make sure each paragraph is embedded in <p></p>
+  '''
+  def raw2html(self, raw):
+    sentences = raw.split('\n')
+    html = ""
+    for sent in sentences:
+      sent = "<p>" + sent + "</p>\n"
+      html += sent
+
+    return html
+
+  def sanitize(self, str):
+    '''
+    sanitize the streaming item
+    '''
+    ## replace non word character to space
+    non_word_regex = re.compile( '(\W+|\_+)' )
+    str = non_word_regex.sub( ' ', str )
+
+    ## compress multiple spaces
+    space_regex = re.compile ( '\s+' )
+    str = space_regex.sub( ' ', str )
+
+    return str.lower()
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
@@ -259,6 +381,7 @@ class Application(tornado.web.Application):
       (r"/ent/(\d+)/(\d+-\d+)", EntRevHandler),
       (r"/doc/(\d+)", DocListHandler),
       (r"/doc/(\d+)/(\d+)", DocViewHandler),
+      (r"/doc/(\d+)/(\d+)/(\d+-\d+)", DocRevViewHandler),
     ]
 
     settings = dict(
