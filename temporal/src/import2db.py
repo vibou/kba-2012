@@ -86,16 +86,16 @@ def import_qrels():
   query_keys = c_annotation.keys()
   query_keys.sort()
   for idx, query in enumerate(query_keys):
-    #key = 'training-c-%d' % idx
-    key = 'testing-c-%d' % idx
+    #key = 'training-c'
+    key = 'testing-c'
     str = json.dumps(c_annotation[query])
     QRELS_DB.hset(key, idx, str)
 
   query_keys = rc_annotation.keys()
   query_keys.sort()
   for idx, query in enumerate(query_keys):
-    #key = 'training-rc-%d' % idx
-    key = 'testing-rc-%d' % idx
+    #key = 'training-rc'
+    key = 'testing-rc'
     str = json.dumps(rc_annotation[query])
     QRELS_DB.hset(key, idx, str)
 

@@ -6,6 +6,7 @@ Provide a web interface to browse the temporal information of related entities
 
 import os
 import re
+import json
 import time
 import datetime
 
@@ -42,6 +43,14 @@ class BaseHandler(tornado.web.RequestHandler):
   @property
   def _test_db(self):
     return self.application._test_db
+
+  @property
+  def _edmap_db(self):
+    return self.application._edmap_db
+
+  @property
+  def _qrels_db(self):
+    return self.application._qrels_db
 
 class HomeHandler(BaseHandler):
   def get(self):
@@ -376,30 +385,230 @@ class TuneHandler(BaseHandler):
   Tune the performance by adding or removing any related entities. The
   performance will be reported by F1 at diffrent levels of cutoffs.
   '''
-  def get(self, ent_id):
-    hash_key = 'query-%s' % ent_id
+  def get(self, query_id):
+    hash_key = 'query-%s' % query_id
     keys = self._rel_ent_dist_db.hkeys(hash_key)
     if 0 == len(keys):
       msg = 'no data found'
       self.render("error.html", msg=msg)
       return
 
-    ## retrieve the list of revisions
-    rel_ent_hash_key = 'query-rel-ent-%s' % ent_id
-    rel_ent_keys = self._rel_ent_dist_db.hkeys(rel_ent_hash_key)
+    query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
 
-    cutoffs = range(99, 200, 1)
+    ## retrieve the list of related entities
+    key = 'ent-list-%s' % query_id
+    eid_keys = self._edmap_db.hkeys(key)
+    eid_keys.sort(key=lambda x: int(x))
+    db_item = self._edmap_db.hmget(key, eid_keys)
 
-    date_list = []
-
-    for idx, rel_ent_str in enumerate(db_item):
+    ent_list = []
+    for idx, ent in enumerate(db_item):
+      eid = eid_keys[idx]
       item = DictItem()
-      item['date'] = rel_ent_keys[idx]
-      item['num'] = len(rel_ent_str.split('='))
-      date_list.append(item)
+      item['eid'] = eid
+      item['ent'] = ent
+      ent_list.append(item)
 
-    ent = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
-    self.render("ent-view.html", ent_id=ent_id, ent=ent, date_list=date_list)
+
+    self.render("tune-view.html", query_id=query_id, query=query, ent_list=ent_list)
+
+class TunePerfHandler(BaseHandler):
+  '''
+  Tune the performance by changing the related entities (either adding,
+  removing). The performance is reported by F1 (or SU) at each cufoff level
+  '''
+  def get(self, query_id, ent_str):
+    # load the qrels
+    key = 'testing-c'
+    str = self._qrels_db.hget(key, query_id)
+    c_qrels = json.loads(str)
+
+    key = 'testing-rc'
+    str = self._qrels_db.hget(key, query_id)
+    rc_qrels = json.loads(str)
+
+    # generate the document list
+    scored_doc_list = {}
+    key = 'e2d-map-%s' % query_id
+    eid_keys = self._edmap_db.hkeys(key)
+    eid_keys.sort(key=lambda x: int(x))
+    e2d_list = self._edmap_db.hmget(key, eid_keys)
+    for e2d_str in e2d_list:
+      e2d = json.loads(e2d_str)
+      for did in e2d:
+        score = e2d[did]
+        if did not in scored_doc_list:
+          scored_doc_list[did] = 0
+        scored_doc_list[did] += score
+
+    # applying filtering over the scored document on different cutoffs
+    c_CM = score_confusion_matrix(scored_doc_list, c_qrels)
+    rc_CM = score_confusion_matrix(scored_doc_list, rc_qrels)
+    c_scores = performance_metrics(c_CM)
+    rc_scores = performance_metrics(rc_CM)
+
+    for cutoff in sorted(c_scores.keys()):
+      c_f1 = c_scores[cutoff]['F']
+      rc_f1 = rc_scores[cutoff]['F']
+      line = '%d\t%6.3f\t%6.3f\n' %(cutoff, c_f1, rc_f1)
+      self.write(line)
+
+def precision(TP, FP):
+    '''
+    Calculates the precision given the number of true positives (TP) and
+    false-positives (FP)
+    '''
+    if (TP+FP) > 0:
+        return float(TP) / (TP + FP)
+    else:
+        return 0.0
+
+def recall(TP, FN):
+    '''
+    Calculates the recall given the number of true positives (TP) and
+    false-negatives (FN)
+    '''
+    if (TP+FN) > 0:
+        return float(TP) / (TP + FN)
+    else:
+        return 0.0
+
+def fscore(precision, recall):
+    '''
+    Calculates the F-score given the precision and recall
+    '''
+    if precision + recall > 0:
+        return float(2 * precision * recall) / (precision + recall)
+    else:
+        return 0.0
+
+def scaled_utility(TP, FP, FN, MinNU = -0.5):
+    '''
+    Scaled Utility from http://trec.nist.gov/pubs/trec11/papers/OVER.FILTERING.pdf
+
+    MinNU is an optional tunable parameter
+    '''
+    if (TP + FN) > 0:
+        T11U = float(2 * TP - FP)
+        MaxU = float(2 * (TP + FN))
+        T11NU = float(T11U) / MaxU
+        return (max(T11NU, MinNU) - MinNU) / (1 - MinNU)
+    else:
+        return 0.0
+
+def performance_metrics (CM, debug=False):
+    '''
+    Computes the performance metrics (precision, recall, F-score, scaled utility)
+
+    CM: dict containing the confusion matrix calculated from score_confusion_matrix()
+    '''
+    ## Compute the performance statistics
+    Scores = dict()
+
+    for cutoff in CM:
+        Scores[cutoff] = dict()
+        ## Precision
+        Scores[cutoff]['P'] = precision(CM[cutoff]['TP'], CM[cutoff]['FP'])
+
+        ## Recall
+        Scores[cutoff]['R'] = recall(CM[cutoff]['TP'], CM[cutoff]['FN'])
+
+        ## F-Score
+        Scores[cutoff]['F'] = fscore(Scores[cutoff]['P'], Scores[cutoff]['R'])
+
+        ## Scaled Utility from http://trec.nist.gov/pubs/trec11/papers/OVER.FILTERING.pdf
+        Scores[cutoff]['SU'] = scaled_utility(CM[cutoff]['TP'],
+            CM[cutoff]['FP'], CM[cutoff]['FN'])
+    return Scores
+
+def score_confusion_matrix (scored_doc_list, annotation, debug=False):
+    '''
+    This function generates the confusion matrix (number of true/false positives
+    and true/false negatives.
+
+    path_to_run_file: str, a filesystem link to the run submission
+    annotation: dict, containing the annotation data
+    unannotated_is_TN: boolean, true to count unannotated as negatives
+    include_training: boolean, true to include training documents
+
+    returns a confusion matrix dictionary for each urlname
+    '''
+    # default: false
+    unannotated_is_TN = False
+
+    END_OF_2012 = 1325375999
+
+    ## Create a dictionary containing the confusion matrix (CM)
+    cutoffs = range(0, 100, 1)
+    CM = dict()
+
+    ## count the total number of assertions per entity
+    num_assertions = {'total': 0,
+                      'in_TTR': 0,
+                      'in_ETR': 0,
+                      'in_annotation_set': 0}
+    for cutoff in cutoffs:
+        CM[cutoff] = dict(TP=0, FP=0, FN=0, TN=0)
+
+    ## Iterate through every row of the run
+    for did in scored_doc_list:
+        score = scored_doc_list[did]
+        timestamp = int(did.split('-')[0])
+
+        ## keep track of total number of assertions per entity
+        num_assertions['total'] += 1
+        if timestamp <= END_OF_2012:
+            num_assertions['in_TTR'] += 1
+        else:
+            num_assertions['in_ETR'] += 1
+
+        in_annotation_set = did in annotation
+
+        if in_annotation_set:
+            num_assertions['in_annotation_set'] += 1
+
+        ## In the annotation set and relevant
+        if in_annotation_set and annotation[did]:
+            for cutoff in cutoffs:
+                if score > cutoff:
+                    ## If above the cutoff: true-positive
+                    CM[cutoff]['TP'] += 1
+
+        ## In the annotation set and non-relevant
+        elif in_annotation_set and not annotation[did]:
+            for cutoff in cutoffs:
+                if score > cutoff:
+                    ## Above the cutoff: false-positive
+                    CM[cutoff]['FP'] += 1
+                else:
+                    ## Below the cutoff: true-negative
+                    CM[cutoff]['TN'] += 1
+        ## Not in the annotation set so its a negative (if flag is true)
+        elif unannotated_is_TN:
+            for cutoff in cutoffs:
+                if score > cutoff:
+                    ## Above the cutoff: false-positive
+                    CM[cutoff]['FP'] += 1
+                else:
+                    ## Below the cutoff: true-negative
+                    CM[cutoff]['TN'] += 1
+
+    ## Correct FN for things in the annotation set that are NOT in the run
+    ## First, calculate number of true things in the annotation set
+    annotation_positives = 0
+    for did in annotation:
+        annotation_positives += annotation[did]
+
+    for cutoff in CM:
+        ## Then subtract the number of TP at each cutoffs
+        ## (since FN+TP==True things in annotation set)
+        CM[cutoff]['FN'] = annotation_positives - CM[cutoff]['TP']
+
+    if debug:
+        print 'showing assertion counts:'
+        print json.dumps(num_assertions, indent=4, sort_keys=True)
+
+    return CM
 
 class Application(tornado.web.Application):
   def __init__(self):
@@ -413,6 +622,8 @@ class Application(tornado.web.Application):
       (r"/doc/(\d+)/(\d+)", DocViewHandler),
       (r"/doc/(\d+)/(\d+)/(\d+-\d+)", DocRevViewHandler),
       (r"/tune/(\d+)", TuneHandler),
+      (r"/tune/(\d+)/([\w\d]+)", TunePerfHandler),
+      (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": "/local/data/xliu/www"}),
     ]
 
     settings = dict(
@@ -434,6 +645,9 @@ class Application(tornado.web.Application):
 
     self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.edmap_db)
+
+    self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.qrels_db)
 
 def main():
   tornado.options.parse_command_line()
