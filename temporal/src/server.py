@@ -371,6 +371,36 @@ class DocRevViewHandler(BaseHandler):
 
     return str.lower()
 
+class TuneHandler(BaseHandler):
+  '''
+  Tune the performance by adding or removing any related entities. The
+  performance will be reported by F1 at diffrent levels of cutoffs.
+  '''
+  def get(self, ent_id):
+    hash_key = 'query-%s' % ent_id
+    keys = self._rel_ent_dist_db.hkeys(hash_key)
+    if 0 == len(keys):
+      msg = 'no data found'
+      self.render("error.html", msg=msg)
+      return
+
+    ## retrieve the list of revisions
+    rel_ent_hash_key = 'query-rel-ent-%s' % ent_id
+    rel_ent_keys = self._rel_ent_dist_db.hkeys(rel_ent_hash_key)
+
+    cutoffs = range(99, 200, 1)
+
+    date_list = []
+
+    for idx, rel_ent_str in enumerate(db_item):
+      item = DictItem()
+      item['date'] = rel_ent_keys[idx]
+      item['num'] = len(rel_ent_str.split('='))
+      date_list.append(item)
+
+    ent = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
+    self.render("ent-view.html", ent_id=ent_id, ent=ent, date_list=date_list)
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
@@ -382,6 +412,7 @@ class Application(tornado.web.Application):
       (r"/doc/(\d+)", DocListHandler),
       (r"/doc/(\d+)/(\d+)", DocViewHandler),
       (r"/doc/(\d+)/(\d+)/(\d+-\d+)", DocRevViewHandler),
+      (r"/tune/(\d+)", TuneHandler),
     ]
 
     settings = dict(
@@ -400,6 +431,9 @@ class Application(tornado.web.Application):
 
     self._test_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.test_db)
+
+    self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.edmap_db)
 
 def main():
   tornado.options.parse_command_line()

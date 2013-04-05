@@ -169,7 +169,7 @@ class WikiMatch():
       self._edmap_db.hset(key, eid, str)
 
     # save the D2E map
-    key = 'd2e-map-%s' %query_id
+    key = 'd2e-map-%s' % query_id
     for did in self._d2e_hash:
       str = json.dumps(self._d2e_hash[did])
       self._edmap_db.hset(key, did, str)

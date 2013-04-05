@@ -12,6 +12,7 @@ class RedisDB(object):
     #rel_ent_dist_db = 1
 
     edmap_db = 3
+    qrels_db = 4
 
     test_db = 2
 
@@ -21,7 +22,6 @@ class RedisDB(object):
     # specifications related to bootstraping
     query_ent_list = 'query_ent_list'
     query_ent_hash = 'query_ent_hash'
-    wiki_ent_set = 'wiki_ent_set'
     ret_item_list = 'ret_item_list'
 
     # mutex
