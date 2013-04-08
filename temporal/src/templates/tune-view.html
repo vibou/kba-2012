@@ -98,15 +98,34 @@ $(function () {
                 lineWidth: 4,
                 marker: {
                     radius: 4
-                }
-            },{
+                },
+                color: '#0000FF'
+            },
+            {
                 name: 'All Entities - RC',
                 lineWidth: 4,
                 marker: {
                     radius: 4
                 },
                 color: '#00FF00'
-            }]
+            },
+            {
+                name: 'Selected Entities - C',
+                lineWidth: 2,
+                marker: {
+                    radius: 4
+                },
+                color: '#FF0000'
+            },
+            {
+                name: 'Selected Entities - RC',
+                lineWidth: 2,
+                marker: {
+                    radius: 4
+                },
+                color: '#FF00FF'
+            }
+            ]
         };
     
     
@@ -114,7 +133,7 @@ $(function () {
         // to the options and initiate the chart.
         // This data is obtained by exporting a GA custom report to TSV.
         // http://api.jquery.com/jQuery.get/
-        jQuery.get('/tune/{{ query_id }}/all', null, function(tsv, state, xhr) {
+        jQuery.get('/tune/{{ query_id }}/+', null, function(tsv, state, xhr) {
             var lines = [],
                 listen = false,
                 date,
@@ -159,6 +178,99 @@ $(function () {
             options.series[1].data = rc_f1Values;
             chart = new Highcharts.Chart(options);
         });
+  
+  $('a#revert').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+    $('div#rel_ent_cloud a').each(function (i) {
+      if ($(this).attr('class') == "selected"){
+        $(this).attr('class', "unselected");
+      }else{
+        $(this).attr('class', "selected");
+      }
+    });
+
+    updateGraph();
+  });
+
+  $('div#rel_ent_cloud a').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+
+    // flip the selected flag
+    if ($(this).attr('class') == "selected"){
+      $(this).attr('class', "unselected");
+    }else{
+      $(this).attr('class', "selected");
+    }
+
+    updateGraph();
+  });
+
+  function updateGraph(){
+    // collect the list of queries which have been selected
+    var query_list = new Array();
+    $('div#rel_ent_cloud a').each(function (i) {
+      if ($(this).attr('class') == "selected"){
+        query_list.push(this.rel);
+      }
+    });
+
+    // verbose output
+    //console.log(query_list);
+    ent_list = query_list.join('+');
+    console.log("selected queries: " + ent_list);
+      
+    jQuery.get('/tune/{{ query_id }}/' + ent_list, null, function(tsv, state, xhr) {
+            var lines = [],
+                listen = false,
+                date,
+    
+                // set up the two data series
+                c_f1Values = [];
+                rc_f1Values = [];
+    
+            // inconsistency
+            if (typeof tsv !== 'string') {
+                tsv = xhr.responseText;
+            }
+    
+            // split the data return into lines and parse them
+            tsv = tsv.split(/\n/g);
+            jQuery.each(tsv, function(i, line) {
+               if (line == 'date\tclose') {
+                  listen = false;
+                }else{
+                	listen = true;
+                }
+    
+                // all data lines start with a double quote
+                if (listen) {
+                    line = line.split(/\t/);
+                    if(3 != line.length){
+                      return;
+                    }
+    
+                    c_f1Values.push([
+                        parseInt(line[0], 10),
+                        parseFloat(line[1])
+                    ]);
+                    rc_f1Values.push([
+                        parseInt(line[0], 10),
+                        parseFloat(line[2])
+                    ]);
+                }
+            });
+
+            // update the graph accordingly
+            //options.series[2].data = c_f1Values;
+            //options.series[3].data = rc_f1Values;
+            //chart = new Highcharts.Chart(options);
+            chart.series[2].setData(c_f1Values, true);
+            chart.series[3].setData(rc_f1Values, true);
+        });
+  }
+
     });
     
 });
@@ -178,9 +290,16 @@ $(function () {
       text-decoration: none;
       margin: 10px;
       padding-top: 10px;
+      font-size: 14pt;
     }
     div#rel_ent_cloud a:hover {
       text-decoration: underline;
+    }
+    div#rel_ent_cloud a.selected {
+      color:#66CC33;
+    }
+    div#rel_ent_cloud a.unselected {
+      color:#FF0000;
     }
     </style>
 	</head>
@@ -202,17 +321,20 @@ $.fn.tagcloud.defaults = {
 };
 
 $(function () {
-  $('#rel_ent_cloud a').tagcloud();
+  //$('#rel_ent_cloud a').tagcloud();
+
 });
+
 </script>
 
 <p><a href="/ent">&lt;- Return to list</a></p>
 <a target = "_blank" href="http://en.wikipedia.org/wiki/{{ query }}">Wikipedia page</a>
 <div id="container" style="min-width: 400px; height: 700px; margin: 0 auto"></div>
+<a href="#" id="revert">Revert Selection</a>
 <div id="rel_ent_cloud">
   <p>{{ len(ent_list) }} related entities in total.</p>
   {% for item in ent_list %}
-  <a href="#" rel="{{ item.eid }}" selected="yes">{{ item.ent }}</a>
+  <a href="#{{ item.eid }}" rel="{{ item.eid }}" class="selected">{{ item.ent }}</a>
   {% end %}
 </div>
 </body>

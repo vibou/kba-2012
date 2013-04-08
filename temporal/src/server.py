@@ -396,9 +396,12 @@ class TuneHandler(BaseHandler):
     query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
 
     ## retrieve the list of related entities
-    key = 'ent-list-%s' % query_id
+    ## here we only retrieve the entities which have occurred in the relevant
+    ## documents, i.e. effective entities
+    key = 'e2d-map-%s' % query_id
     eid_keys = self._edmap_db.hkeys(key)
     eid_keys.sort(key=lambda x: int(x))
+    key = 'ent-list-%s' % query_id
     db_item = self._edmap_db.hmget(key, eid_keys)
 
     ent_list = []
@@ -408,7 +411,6 @@ class TuneHandler(BaseHandler):
       item['eid'] = eid
       item['ent'] = ent
       ent_list.append(item)
-
 
     self.render("tune-view.html", query_id=query_id, query=query, ent_list=ent_list)
 
@@ -431,6 +433,21 @@ class TunePerfHandler(BaseHandler):
     scored_doc_list = {}
     key = 'e2d-map-%s' % query_id
     eid_keys = self._edmap_db.hkeys(key)
+
+    # get the ent list specified by the parameters from passed-in URL
+    if ' ' != ent_str:
+      ent_list = ent_str.split(' ')
+      new_ent_list = list(set(eid_keys) & set(ent_list))
+      eid_keys = new_ent_list
+
+    if 0 == len(eid_keys):
+      # in case there is no valid entity, just return two points
+      line = '0\t0.0\t0.0\n'
+      self.write(line)
+      line = '100\t0.0\t0.0\n'
+      self.write(line)
+      return
+
     eid_keys.sort(key=lambda x: int(x))
     e2d_list = self._edmap_db.hmget(key, eid_keys)
     for e2d_str in e2d_list:
@@ -622,7 +639,7 @@ class Application(tornado.web.Application):
       (r"/doc/(\d+)/(\d+)", DocViewHandler),
       (r"/doc/(\d+)/(\d+)/(\d+-\d+)", DocRevViewHandler),
       (r"/tune/(\d+)", TuneHandler),
-      (r"/tune/(\d+)/([\w\d]+)", TunePerfHandler),
+      (r"/tune/(\d+)/([\d\+]+)", TunePerfHandler),
       (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": "/local/data/xliu/www"}),
     ]
 
