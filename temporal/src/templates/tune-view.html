@@ -192,6 +192,18 @@ $(function () {
 
     updateGraph();
   });
+  
+  $('a#reset').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+    $('div#rel_ent_cloud a').each(function (i) {
+      $(this).attr('class', "selected");
+    });
+
+    //updateGraph();
+    chart.series[2].setVisible(false, false);
+    chart.series[3].setVisible(false, true);
+  });
 
   $('div#rel_ent_cloud a').click(function(event) {
     // first, prevent the default action, therefore to keep URL unchanged
@@ -266,7 +278,10 @@ $(function () {
             //options.series[2].data = c_f1Values;
             //options.series[3].data = rc_f1Values;
             //chart = new Highcharts.Chart(options);
-            chart.series[2].setData(c_f1Values, true);
+            chart.series[2].setVisible(true, false);
+            chart.series[2].setData(c_f1Values, false);
+
+            chart.series[3].setVisible(true, true);
             chart.series[3].setData(rc_f1Values, true);
         });
   }
@@ -331,6 +346,7 @@ $(function () {
 <a target = "_blank" href="http://en.wikipedia.org/wiki/{{ query }}">Wikipedia page</a>
 <div id="container" style="min-width: 400px; height: 700px; margin: 0 auto"></div>
 <a href="#" id="revert">Revert Selection</a>
+<a href="#" id="reset">Reset Selection</a>
 <div id="rel_ent_cloud">
   <p>{{ len(ent_list) }} related entities in total.</p>
   {% for item in ent_list %}
