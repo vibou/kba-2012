@@ -15,6 +15,7 @@ import gzip
 import json
 import argparse
 import datetime
+import operator
 from collections import defaultdict
 
 import redis
@@ -206,18 +207,30 @@ class TuneQueryOptEnt():
     qrels_key_hash = {'testing-c':1, 'testing-rc': 1}
     if qrels_key not in qrels_key_hash:
       print 'Invalid qrels_key: %s' % qrels_key
+      return
 
     # load the qrels
-    str = self._qrels_db.hget(key, query_id)
+    str = self._qrels_db.hget(qrels_key, query_id)
     qrels = json.loads(str)
 
     # get all the available entity candidates
     key = 'e2d-map-%s' % query_id
     all_eid = self._edmap_db.hkeys(key)
 
+    all_eid.sort(key=lambda x: int(x))
+    key = 'ent-list-%s' % query_id
+    db_item = self._edmap_db.hmget(key, all_eid)
+
+    ent_hash = {}
+    for idx, ent in enumerate(db_item):
+      eid = all_eid[idx]
+      ent_hash[eid] = ent
+
     # TODO select the subset of entities incrementally in a greedy way
-    sel_eid = None
-    left_eid = all_eid.copy()
+    sel_eid = {}
+    left_eid = {}
+    for eid in all_eid:
+      left_eid[eid] = 1
     g_max_score = 0.0
 
     while len(left_eid.keys()) > 0:
@@ -229,12 +242,12 @@ class TuneQueryOptEnt():
       max_eid = None
       max_score = 0.0
 
-      # iterate over all the left entities, and try to add one to see
-      # whether it can lead to better prformance
+      # iterate over all the left entities, and try to add one of them to the
+      # selected entity list to see whether it can lead to better prformance
       for eid in left_eid:
         cur_sel_eid = sel_eid.copy()
         cur_sel_eid[eid] = 1
-        (cutoff, score) = self.max_perf(sel_eid.keys(), qrels)
+        (cutoff, score) = self.max_perf(query_id, cur_sel_eid.keys(), qrels)
 
         if score > max_score:
           max_eid = cur_sel_eid.copy()
@@ -246,36 +259,38 @@ class TuneQueryOptEnt():
         g_max_score = max_score
         sel_eid = max_eid.copy()
 
-        # remove the selected entity in this round
-        for eid in left_eid:
+        # remove the selected entity in this round from the left_eid list
+        left_eid_copy = left_eid.copy()
+        for eid in left_eid_copy:
           if eid in sel_eid:
             del left_eid[eid]
+            print 'Add entity: %s' % ent_hash[eid]
+        print 'Max F: %6.3f' % g_max_score
 
       # otherwise, we have reached the local optimum, which means convergence.
       # Thus, we stop here
       else:
         break
 
-    (cutoff, score) = self.max_perf(sel_eid.keys(), sel_eid)
-    sel_eid.sort(key=lambda x: int(x))
-    key = 'ent-list-%s' % query_id
-    db_item = self._edmap_db.hmget(key, sel_eid)
+    (cutoff, score) = self.max_perf(query_id, sel_eid.keys(), qrels)
 
+    sel_eid_list = sel_eid.keys()
+    sel_eid_list.sort(key=lambda x: int(x))
     ent_list = []
-    for idx, ent in enumerate(db_item):
-      eid = eid_keys[idx]
+    for eid in sel_eid_list:
+      ent = ent_hash[eid]
       ent_list.append(ent)
 
-    print 'Selected entity list [%d] :\n%s' % (len(sel_eid.keys()),
-        ' '.join(ent_list))
+    print 'Selected entity list [%d] :\n%s' % (len(ent_list), ', '.join(ent_list))
     print '-' * 60
     print 'Cutoff: %d' % cutoff
     print 'Max F: %6.3f' % score
 
-  def max_perf(self, eid_list, qrels):
+  def max_perf(self, query_id, eid_list, qrels):
     '''
     Get the maximum performance given an entity list
     '''
+    key = 'e2d-map-%s' % query_id
     eid_list.sort(key=lambda x: int(x))
     e2d_list = self._edmap_db.hmget(key, eid_list)
 
@@ -313,7 +328,7 @@ class TuneQueryOptEnt():
         max = score
         max_cf = cutoff
 
-    return (curoff, max)
+    return (max_cf, max)
 
 def main():
   parser = argparse.ArgumentParser(description=__doc__, usage=__doc__)
