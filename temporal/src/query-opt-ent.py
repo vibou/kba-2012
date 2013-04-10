@@ -192,35 +192,95 @@ def score_confusion_matrix (scored_doc_list, annotation, debug=False):
     return CM
 
 class TuneQueryOptEnt():
-  '''
-  Generate the optimized related entity subset using greedy algorithm
-  '''
-  self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-    db=RedisDB.edmap_db)
+  def __init__(self):
+    self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.edmap_db)
 
-  self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-    db=RedisDB.qrels_db)
+    self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.qrels_db)
 
-  def tune(self, query_id):
+  def greedy_tune(self, query_id, qrels_key):
+    '''
+    Generate the optimized related entity subset using greedy algorithm
+    '''
+    qrels_key_hash = {'testing-c':1, 'testing-rc': 1}
+    if qrels_key not in qrels_key_hash:
+      print 'Invalid qrels_key: %s' % qrels_key
+
     # load the qrels
-    key = 'testing-c'
     str = self._qrels_db.hget(key, query_id)
-    c_qrels = json.loads(str)
+    qrels = json.loads(str)
 
-    key = 'testing-rc'
-    str = self._qrels_db.hget(key, query_id)
-    rc_qrels = json.loads(str)
+    # get all the available entity candidates
+    key = 'e2d-map-%s' % query_id
+    all_eid = self._edmap_db.hkeys(key)
+
+    # TODO select the subset of entities incrementally in a greedy way
+    sel_eid = None
+    left_eid = all_eid.copy()
+    g_max_score = 0.0
+
+    while len(left_eid.keys()) > 0:
+      sel_num = len(sel_eid.keys())
+      left_num = len(left_eid.keys())
+      print '%d selected, %d left' %(sel_num, left_num)
+
+      # the max scores for this round
+      max_eid = None
+      max_score = 0.0
+
+      # iterate over all the left entities, and try to add one to see
+      # whether it can lead to better prformance
+      for eid in left_eid:
+        cur_sel_eid = sel_eid.copy()
+        cur_sel_eid[eid] = 1
+        (cutoff, score) = self.max_perf(sel_eid.keys(), qrels)
+
+        if score > max_score:
+          max_eid = cur_sel_eid.copy()
+          max_score = score
+
+      # if we can keep increasing the max performance in this round, keep
+      # going
+      if max_score > g_max_score:
+        g_max_score = max_score
+        sel_eid = max_eid.copy()
+
+        # remove the selected entity in this round
+        for eid in left_eid:
+          if eid in sel_eid:
+            del left_eid[eid]
+
+      # otherwise, we have reached the local optimum, which means convergence.
+      # Thus, we stop here
+      else:
+        break
+
+    (cutoff, score) = self.max_perf(sel_eid.keys(), sel_eid)
+    sel_eid.sort(key=lambda x: int(x))
+    key = 'ent-list-%s' % query_id
+    db_item = self._edmap_db.hmget(key, sel_eid)
+
+    ent_list = []
+    for idx, ent in enumerate(db_item):
+      eid = eid_keys[idx]
+      ent_list.append(ent)
+
+    print 'Selected entity list [%d] :\n%s' % (len(sel_eid.keys()),
+        ' '.join(ent_list))
+    print '-' * 60
+    print 'Cutoff: %d' % cutoff
+    print 'Max F: %6.3f' % score
+
+  def max_perf(self, eid_list, qrels):
+    '''
+    Get the maximum performance given an entity list
+    '''
+    eid_list.sort(key=lambda x: int(x))
+    e2d_list = self._edmap_db.hmget(key, eid_list)
 
     # generate the document list
     scored_doc_list = {}
-    key = 'e2d-map-%s' % query_id
-    all_eid_keys = self._edmap_db.hkeys(key)
-
-    # TODO select the subset of entities
-    eid_keys = all_eid_keys
-
-    eid_keys.sort(key=lambda x: int(x))
-    e2d_list = self._edmap_db.hmget(key, eid_keys)
     for e2d_str in e2d_list:
       e2d = json.loads(e2d_str)
       for did in e2d:
@@ -230,32 +290,30 @@ class TuneQueryOptEnt():
         scored_doc_list[did] += score
 
     # applying filtering over the scored document on different cutoffs
-    c_CM = score_confusion_matrix(scored_doc_list, c_qrels)
-    rc_CM = score_confusion_matrix(scored_doc_list, rc_qrels)
-    c_scores = performance_metrics(c_CM)
-    rc_scores = performance_metrics(rc_CM)
+    CM = score_confusion_matrix(scored_doc_list, qrels)
+    scores = performance_metrics(CM)
+    (cutoff, max) = self.max_score(scores, 'F')
+    return (cutoff, max)
 
-    (c_cutoff, c_max) = self.max_score(c_scores, 'F')
+  def max_score(self, scores, measure):
+    '''
+    Get the maximum scores from a score list with different cutoffs
+    Valid measures include 'P', 'R', 'F' and 'SU'
+    '''
+    measure_list = {'P':1, 'R':1, 'F':1, 'SU':1}
+    if measure not in measure_list:
+      print 'Invalid measure: %s' % measure
+      return 0.0
 
-def max_score(self, scores, measure):
-  '''
-  Get the maximum scores from a score list with different cutoffs
-  Possible measures include 'P', 'R', 'F' and 'SU'
-  '''
-  measure_list = {'P':1, 'R':1, 'F':1, 'SU':1}
-  if measure not in measure_list:
-    print 'Invalid measure: %s' % measure
-    return 0.0
+    max = 0.0
+    max_cf = 0
+    for cutoff in sorted(scores.keys()):
+      score = scores[cutoff][measure]
+      if score > max:
+        max = score
+        max_cf = cutoff
 
-  max = 0.0
-  max_cf = 0
-  for cutoff in sorted(scores.keys()):
-    score = scores[cutoff][measure]
-    if score > max:
-      max = score
-      max_cf = cutoff
-
-  return (curoff, max)
+    return (curoff, max)
 
 def main():
   parser = argparse.ArgumentParser(description=__doc__, usage=__doc__)
@@ -273,7 +331,12 @@ def main():
   args = parser.parse_args()
 
   tuner = TuneQueryOptEnt()
-  tuner.tune(args.query_id)
+
+  qrels_c_key = 'testing-c'
+  tuner.greedy_tune(args.query_id, qrels_c_key)
+
+  #qrels_rc_key = 'testing-rc'
+  #tuner.greedy_tune(args.query_id, qrels_rc_key)
 
 if __name__ == '__main__':
   try:
