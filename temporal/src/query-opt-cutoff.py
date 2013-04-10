@@ -5,7 +5,7 @@ the optimal cutoff from the results of training data.
 
 This script is based on the official KBA evaluation script
 
-query-opt-eval.py <query_id>
+query-opt-cutoff.py <query_id>
 
 '''
 ## use float division instead of integer division
