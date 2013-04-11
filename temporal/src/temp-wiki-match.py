@@ -152,7 +152,7 @@ class WikiMatch():
             f.write('%s %s %s\n' %(ret_item['query'], ret_item['stream_id'],
               ret_item['score']))
       except IOError as e:
-        print 'Failed to open file: %s' %save_file
+        print 'Failed to save file: %s' % save_file
 
   def load_data(self, query_id):
     '''

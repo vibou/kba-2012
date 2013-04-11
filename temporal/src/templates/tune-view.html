@@ -205,6 +205,81 @@ $(function () {
     chart.series[3].setVisible(false, true);
   });
 
+  $('a#greedy').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+    
+    jQuery.get('/tune/{{ query_id }}/greedy', null, function(tsv, state, xhr) {
+      var lines = [],
+      // set up the two data series
+      ent_hash = {};
+    
+      // inconsistency
+      if (typeof tsv !== 'string') {
+        tsv = xhr.responseText;
+      }
+    
+      // split the data return into lines and parse them
+      tsv = tsv.split(/\n/g);
+      jQuery.each(tsv, function(i, line) {
+        if (line == 'N/A') {
+          return;
+        }
+    
+        line = line.split(/\t/);
+        if(2 != line.length){
+          return;
+        }
+    
+        ent_hash[line[0]] = 1;
+      });
+
+      // update the related entity cloud
+      $('div#rel_ent_cloud a').each(function (i) {
+        id = $(this).attr('rel') 
+        if (ent_hash.hasOwnProperty(id)){
+          $(this).attr('class', "selected");
+        }else{
+          $(this).attr('class', "unselected");
+        }
+      });
+
+      // update the graph then
+      updateGraph();
+    });
+  });
+  
+  $("label#ent_list_error").hide();
+
+  $('#ent_list_submit').click(function() {
+    var ent_list_str = $('input#ent_list_input').val();
+    var pattern = /^[\d\+]+$/g;
+    if(false == pattern.test(ent_list_str)){
+      $("label#ent_list_error").show();
+    }else{
+      $("label#ent_list_error").hide();
+      ent_list_str = ent_list_str.split(/\+/g);
+      var ent_hash = {}
+      jQuery.each(ent_list_str, function(i, val) {
+        ent_hash[val] = 1;
+      });
+      
+      // update the related entity cloud
+      $('div#rel_ent_cloud a').each(function (i) {
+        id = $(this).attr('rel') 
+        if (ent_hash.hasOwnProperty(id)){
+          $(this).attr('class', "selected");
+        }else{
+          $(this).attr('class', "unselected");
+        }
+      });
+
+      // update the graph then
+      updateGraph();
+    }
+    return false;
+  });
+
   $('div#rel_ent_cloud a').click(function(event) {
     // first, prevent the default action, therefore to keep URL unchanged
     event.preventDefault();
@@ -278,10 +353,11 @@ $(function () {
             //options.series[2].data = c_f1Values;
             //options.series[3].data = rc_f1Values;
             //chart = new Highcharts.Chart(options);
+
             chart.series[2].setVisible(true, false);
             chart.series[2].setData(c_f1Values, false);
 
-            chart.series[3].setVisible(true, true);
+            //chart.series[3].setVisible(true, true);
             chart.series[3].setData(rc_f1Values, true);
         });
   }
@@ -316,6 +392,10 @@ $(function () {
     div#rel_ent_cloud a.unselected {
       color:#FF0000;
     }
+    label.error{
+      color:#FF0000;
+    }
+    div#ent_list_form 
     </style>
 	</head>
 	<body>
@@ -327,26 +407,24 @@ $(function () {
 <script type="text/javascript" src="http://www.highcharts.com/highslide/highslide.config.js" charset="utf-8"></script>
 <link rel="stylesheet" type="text/css" href="http://www.highcharts.com/highslide/highslide.css" />
 
-<!-- jquery TagCloud Plugin: https://github.com/addywaddy/jquery.tagcloud.js/ -->
-<script src="/static/js/jquery.tagcloud.js"></script>
-<script>
-$.fn.tagcloud.defaults = {
-  size: {start: 14, end: 14, unit: 'pt'},
-  color: {start: '#66CC33', end: '#66CC33'}
-};
-
-$(function () {
-  //$('#rel_ent_cloud a').tagcloud();
-
-});
-
 </script>
 
 <p><a href="/ent">&lt;- Return to list</a></p>
 <a target = "_blank" href="http://en.wikipedia.org/wiki/{{ query }}">Wikipedia page</a>
 <div id="container" style="min-width: 400px; height: 700px; margin: 0 auto"></div>
-<a href="#" id="revert">Revert Selection</a>
-<a href="#" id="reset">Reset Selection</a>
+
+<p><a href="#" id="revert">Revert Selection</a></p>
+<p><a href="#" id="reset">Reset Selection</a></p>
+<p><a href="#" id="greedy">Greedy Selection</a></p>
+
+<div id="ent_list_form">
+<form name="ent_list_form" action="" method="get">
+Related entity List: <input type="text" name="ent_list_input" id="ent_list_input" size="200">
+<input type="submit" value="Submit" id="ent_list_submit">
+<label class="error" for="ent_list" id="ent_list_error">Invalid format. It should be like: 1+2+5+10 </label>
+</form>
+</div>
+
 <div id="rel_ent_cloud">
   <p>{{ len(ent_list) }} related entities in total.</p>
   {% for item in ent_list %}

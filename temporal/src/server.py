@@ -470,6 +470,27 @@ class TunePerfHandler(BaseHandler):
       line = '%d\t%6.3f\t%6.3f\n' %(cutoff, c_f1, rc_f1)
       self.write(line)
 
+class GreedyPerfHandler(BaseHandler):
+  '''
+  Get the related entity list selected by the greedy algorithm
+  '''
+  def get(self, query_id):
+    key = 'greedy-ent-list-c'
+    #key = 'greedy-ent-list-rc'
+    sel_eid_str = self._edmap_db.hget(key, query_id)
+    sel_eid = json.loads(sel_eid_str)
+    eid_keys = sel_eid.keys()
+
+    if 0 == len(eid_keys):
+      line = 'N/A'
+      self.write(line)
+      return
+
+    eid_keys.sort(key=lambda x: int(x))
+    for eid in eid_keys:
+      line = '%s\t1\n' % eid
+      self.write(line)
+
 def precision(TP, FP):
     '''
     Calculates the precision given the number of true positives (TP) and
@@ -640,6 +661,7 @@ class Application(tornado.web.Application):
       (r"/doc/(\d+)/(\d+)/(\d+-\d+)", DocRevViewHandler),
       (r"/tune/(\d+)", TuneHandler),
       (r"/tune/(\d+)/([\d\+]+)", TunePerfHandler),
+      (r"/tune/(\d+)/greedy", GreedyPerfHandler),
       (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": "/local/data/xliu/www"}),
     ]
 

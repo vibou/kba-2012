@@ -200,6 +200,12 @@ class TuneQueryOptEnt():
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.qrels_db)
 
+    self._rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.rel_ent_dist_db)
+
+    self._ret_list = {}
+    self._cutoff_list = {}
+
   def greedy_tune(self, query_id, qrels_key):
     '''
     Generate the optimized related entity subset using greedy algorithm
@@ -273,6 +279,11 @@ class TuneQueryOptEnt():
         break
 
     (cutoff, score) = self.max_perf(query_id, sel_eid.keys(), qrels)
+    scored_doc_list = self.get_doc_list(query_id, sel_eid.keys())
+    self._ret_list[query_id] = scored_doc_list
+    self._cutoff_list[query_id] = cutoff
+
+    self.save2db(query_id, sel_eid)
 
     sel_eid_list = sel_eid.keys()
     sel_eid_list.sort(key=lambda x: int(x))
@@ -286,9 +297,57 @@ class TuneQueryOptEnt():
     print 'Cutoff: %d' % cutoff
     print 'Max F: %6.3f' % score
 
+    return score
+
+  def save2db(self, query_id, ent_list):
+    '''
+    Save the related entity list to DB
+    '''
+    key = 'greedy-ent-list-c'
+    #key = 'greedy-ent-list-rc'
+
+    str = json.dumps(ent_list)
+    self._edmap_db.hset(key, query_id, str)
+
+  def save_run_file(self, save_file):
+    '''
+    Save the filtered document list into run file
+    '''
+    print 'Saving %s' %save_file
+    try:
+      with open(save_file, 'w') as f:
+        query_id_list = self._ret_list.keys()
+        query_id_list.sort(key=lambda x: int(x))
+
+        for query_id in query_id_list:
+          query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
+          scored_doc_list = self._ret_list[query_id]
+          cutoff = self._cutoff_list[query_id]
+          for did in scored_doc_list:
+            score = scored_doc_list[did]
+            if score > cutoff:
+              f.write('udel_fang UDInfo_OPT_ENT %s %s %d\n'
+                  %(did, query, 1000))
+            #else:
+              #print 'Skipping %s %s %d %d' %(did, query, score, cutoff)
+    except IOError as e:
+      print 'Failed to save file: %s' % save_file
+
   def max_perf(self, query_id, eid_list, qrels):
     '''
     Get the maximum performance given an entity list
+    '''
+    scored_doc_list = self.get_doc_list(query_id, eid_list)
+
+    # applying filtering over the scored document on different cutoffs
+    CM = score_confusion_matrix(scored_doc_list, qrels)
+    scores = performance_metrics(CM)
+    (cutoff, max) = self.max_score(scores, 'F')
+    return (cutoff, max)
+
+  def get_doc_list(self, query_id, eid_list):
+    '''
+    Get the scored doc list for a given related entity list
     '''
     key = 'e2d-map-%s' % query_id
     eid_list.sort(key=lambda x: int(x))
@@ -304,11 +363,7 @@ class TuneQueryOptEnt():
           scored_doc_list[did] = 0
         scored_doc_list[did] += score
 
-    # applying filtering over the scored document on different cutoffs
-    CM = score_confusion_matrix(scored_doc_list, qrels)
-    scores = performance_metrics(CM)
-    (cutoff, max) = self.max_score(scores, 'F')
-    return (cutoff, max)
+    return scored_doc_list
 
   def max_score(self, scores, measure):
     '''
@@ -348,10 +403,27 @@ def main():
   tuner = TuneQueryOptEnt()
 
   qrels_c_key = 'testing-c'
-  tuner.greedy_tune(args.query_id, qrels_c_key)
+  #score = tuner.greedy_tune(args.query_id, qrels_c_key)
+  qrels_rc_key = 'testing-rc'
+  #score = tuner.greedy_tune(args.query_id, qrels_rc_key)
 
-  #qrels_rc_key = 'testing-rc'
-  #tuner.greedy_tune(args.query_id, qrels_rc_key)
+  # run over all the queries
+  query_id_list = range(28, 29, 1)
+  score_list = []
+
+  for query_id in query_id_list:
+    print 'Query %d' % query_id
+    score = tuner.greedy_tune(str(query_id), qrels_c_key)
+    #score = tuner.greedy_tune(str(query_id), qrels_rc_key)
+    score_list.append(score)
+    #if len(score_list) > 5:
+      #break
+
+  if len(score_list):
+    avg = reduce(lambda x, y: x+y, score_list) / len(score_list)
+    print 'Average: %6.3f' % avg
+
+  tuner.save_run_file('runs/test/c-opt-ent')
 
 if __name__ == '__main__':
   try:
