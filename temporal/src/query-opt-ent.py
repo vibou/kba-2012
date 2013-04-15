@@ -195,7 +195,7 @@ def score_confusion_matrix (scored_doc_list, annotation, debug=False):
 class TuneQueryOptEnt():
   def __init__(self):
     self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.edmap_db)
+      db=RedisDB.test_edmap_db)
 
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.qrels_db)

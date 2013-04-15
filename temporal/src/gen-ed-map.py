@@ -41,14 +41,15 @@ class WikiMatch():
   _d2e_hash = {}
 
   _exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      #db=RedisDB.oair_doc_train_db)
-      db=RedisDB.oair_doc_test_db)
+      db=RedisDB.oair_doc_train_db)
+      #db=RedisDB.oair_doc_test_db)
 
   _rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.rel_ent_dist_db)
 
   _edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.edmap_db)
+      db=RedisDB.train_edmap_db)
+      #db=RedisDB.test_edmap_db)
 
   def format_query(self, query):
     '''
@@ -124,8 +125,8 @@ class WikiMatch():
     dt_list = self._rel_ent_dist_db.hkeys(hash_key)
     dt_list.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
 
-    # for each revision (i.e. a list of related entities), estimate relevance
-    # score for each of the document
+    # for each revision (i.e. a list of related entities), collect all the
+    # related entities
     for dt in dt_list:
       rel_ent_str = self._rel_ent_dist_db.hget(hash_key, dt)
       rel_ent_list = rel_ent_str.split('=')

@@ -401,15 +401,20 @@ class TuneHandler(BaseHandler):
     key = 'e2d-map-%s' % query_id
     eid_keys = self._edmap_db.hkeys(key)
     eid_keys.sort(key=lambda x: int(x))
+    map_db_item = self._edmap_db.hmget(key, eid_keys)
+
     key = 'ent-list-%s' % query_id
     db_item = self._edmap_db.hmget(key, eid_keys)
 
     ent_list = []
     for idx, ent in enumerate(db_item):
       eid = eid_keys[idx]
+      map_str = map_db_item[idx]
+      map_json = json.loads(map_str)
       item = DictItem()
       item['eid'] = eid
       item['ent'] = ent
+      item['doc_num'] = len(map_json.keys())
       ent_list.append(item)
 
     self.render("tune-view.html", query_id=query_id, query=query, ent_list=ent_list)
@@ -683,7 +688,7 @@ class Application(tornado.web.Application):
         db=RedisDB.test_db)
 
     self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.edmap_db)
+      db=RedisDB.test_edmap_db)
 
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.qrels_db)

@@ -80,22 +80,28 @@ def load_annotation (path_to_annotation_file, include_relevant, is_training):
 
 def import_qrels():
   ## Load in the annotation data, including both training and testing data
-  c_annotation = load_annotation(QREL_FILE, False, False)
-  rc_annotation = load_annotation(QREL_FILE, True, False)
+
+  # training data
+  c_annotation = load_annotation(QREL_FILE, False, True)
+  rc_annotation = load_annotation(QREL_FILE, True, True)
+
+  # testing data
+  #c_annotation = load_annotation(QREL_FILE, False, False)
+  #rc_annotation = load_annotation(QREL_FILE, True, False)
 
   query_keys = c_annotation.keys()
   query_keys.sort()
   for idx, query in enumerate(query_keys):
-    #key = 'training-c'
-    key = 'testing-c'
+    key = 'training-c'
+    #key = 'testing-c'
     str = json.dumps(c_annotation[query])
     QRELS_DB.hset(key, idx, str)
 
   query_keys = rc_annotation.keys()
   query_keys.sort()
   for idx, query in enumerate(query_keys):
-    #key = 'training-rc'
-    key = 'testing-rc'
+    key = 'training-rc'
+    #key = 'testing-rc'
     str = json.dumps(rc_annotation[query])
     QRELS_DB.hset(key, idx, str)
 

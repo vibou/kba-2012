@@ -428,7 +428,8 @@ Related entity List: <input type="text" name="ent_list_input" id="ent_list_input
 <div id="rel_ent_cloud">
   <p>{{ len(ent_list) }} related entities in total.</p>
   {% for item in ent_list %}
-  <a href="#{{ item.eid }}" rel="{{ item.eid }}" class="selected">{{ item.ent }}</a>
+  <a href="#{{ item.eid }}" rel="{{ item.eid }}" class="selected">{{ item.ent }} 
+  ({{ item.doc_num}})</a>
   {% end %}
 </div>
 </body>
