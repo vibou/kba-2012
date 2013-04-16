@@ -45,8 +45,12 @@ class BaseHandler(tornado.web.RequestHandler):
     return self.application._test_db
 
   @property
-  def _edmap_db(self):
-    return self.application._edmap_db
+  def _train_edmap_db(self):
+    return self.application._train_edmap_db
+
+  @property
+  def _test_edmap_db(self):
+    return self.application._test_edmap_db
 
   @property
   def _qrels_db(self):
@@ -399,12 +403,12 @@ class TuneHandler(BaseHandler):
     ## here we only retrieve the entities which have occurred in the relevant
     ## documents, i.e. effective entities
     key = 'e2d-map-%s' % query_id
-    eid_keys = self._edmap_db.hkeys(key)
+    eid_keys = self._test_edmap_db.hkeys(key)
     eid_keys.sort(key=lambda x: int(x))
-    map_db_item = self._edmap_db.hmget(key, eid_keys)
+    map_db_item = self._test_edmap_db.hmget(key, eid_keys)
 
     key = 'ent-list-%s' % query_id
-    db_item = self._edmap_db.hmget(key, eid_keys)
+    db_item = self._test_edmap_db.hmget(key, eid_keys)
 
     ent_list = []
     for idx, ent in enumerate(db_item):
@@ -437,7 +441,7 @@ class TunePerfHandler(BaseHandler):
     # generate the document list
     scored_doc_list = {}
     key = 'e2d-map-%s' % query_id
-    eid_keys = self._edmap_db.hkeys(key)
+    eid_keys = self._test_edmap_db.hkeys(key)
 
     # get the ent list specified by the parameters from passed-in URL
     if ' ' != ent_str:
@@ -454,7 +458,7 @@ class TunePerfHandler(BaseHandler):
       return
 
     eid_keys.sort(key=lambda x: int(x))
-    e2d_list = self._edmap_db.hmget(key, eid_keys)
+    e2d_list = self._test_edmap_db.hmget(key, eid_keys)
     for e2d_str in e2d_list:
       e2d = json.loads(e2d_str)
       for did in e2d:
@@ -482,7 +486,28 @@ class GreedyPerfHandler(BaseHandler):
   def get(self, query_id):
     key = 'greedy-ent-list-c'
     #key = 'greedy-ent-list-rc'
-    sel_eid_str = self._edmap_db.hget(key, query_id)
+    sel_eid_str = self._test_edmap_db.hget(key, query_id)
+    sel_eid = json.loads(sel_eid_str)
+    eid_keys = sel_eid.keys()
+
+    if 0 == len(eid_keys):
+      line = 'N/A'
+      self.write(line)
+      return
+
+    eid_keys.sort(key=lambda x: int(x))
+    for eid in eid_keys:
+      line = '%s\t1\n' % eid
+      self.write(line)
+
+class TrainGreedyPerfHandler(BaseHandler):
+  '''
+  Get the related entity list selected by the greedy algorithm
+  '''
+  def get(self, query_id):
+    key = 'greedy-ent-list-c'
+    #key = 'greedy-ent-list-rc'
+    sel_eid_str = self._train_edmap_db.hget(key, query_id)
     sel_eid = json.loads(sel_eid_str)
     eid_keys = sel_eid.keys()
 
@@ -667,6 +692,7 @@ class Application(tornado.web.Application):
       (r"/tune/(\d+)", TuneHandler),
       (r"/tune/(\d+)/([\d\+]+)", TunePerfHandler),
       (r"/tune/(\d+)/greedy", GreedyPerfHandler),
+      (r"/tune/(\d+)/greedy/train", TrainGreedyPerfHandler),
       (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": "/local/data/xliu/www"}),
     ]
 
@@ -687,7 +713,10 @@ class Application(tornado.web.Application):
     self._test_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.test_db)
 
-    self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+    self._train_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.train_edmap_db)
+
+    self._test_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.test_edmap_db)
 
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,

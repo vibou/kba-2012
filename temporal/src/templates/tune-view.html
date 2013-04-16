@@ -205,7 +205,59 @@ $(function () {
     chart.series[3].setVisible(false, true);
   });
 
-  $('a#greedy').click(function(event) {
+  $('a#greedy-train').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+    
+    jQuery.get('/tune/{{ query_id }}/greedy/train', null, function(tsv, state, xhr) {
+      var lines = [],
+      // set up the two data series
+      ent_hash = {};
+    
+      // inconsistency
+      if (typeof tsv !== 'string') {
+        tsv = xhr.responseText;
+      }
+    
+      // split the data return into lines and parse them
+      tsv = tsv.split(/\n/g);
+      jQuery.each(tsv, function(i, line) {
+        if (line == 'N/A') {
+          return;
+        }
+    
+        line = line.split(/\t/);
+        if(2 != line.length){
+          return;
+        }
+    
+        ent_hash[line[0]] = 1;
+      });
+
+      ent_list = []
+      // update the related entity cloud
+      $('div#rel_ent_cloud a').each(function (i) {
+        id = $(this).attr('rel') 
+        if (ent_hash.hasOwnProperty(id)){
+          $(this).attr('class', "selected");
+          ent_list.push($(this).text());
+        }else{
+          $(this).attr('class', "unselected");
+        }
+      });
+
+      $('a#greedy-train').siblings('span').remove();
+      jQuery.each(ent_list, function(i, ent) {
+        span = '<span> ' + ent + ' </span>';
+        $('a#greedy-train').after(span);
+      });
+
+      // update the graph then
+      updateGraph();
+    });
+  });
+  
+  $('a#greedy-test').click(function(event) {
     // first, prevent the default action, therefore to keep URL unchanged
     event.preventDefault();
     
@@ -234,14 +286,22 @@ $(function () {
         ent_hash[line[0]] = 1;
       });
 
+      ent_list = []
       // update the related entity cloud
       $('div#rel_ent_cloud a').each(function (i) {
         id = $(this).attr('rel') 
         if (ent_hash.hasOwnProperty(id)){
           $(this).attr('class', "selected");
+          ent_list.push($(this).text());
         }else{
           $(this).attr('class', "unselected");
         }
+      });
+
+      $('a#greedy-test').siblings('span').remove();
+      jQuery.each(ent_list, function(i, ent) {
+        span = '<span> ' + ent + ' </span>';
+        $('a#greedy-test').after(span);
       });
 
       // update the graph then
@@ -415,7 +475,8 @@ $(function () {
 
 <p><a href="#" id="revert">Revert Selection</a></p>
 <p><a href="#" id="reset">Reset Selection</a></p>
-<p><a href="#" id="greedy">Greedy Selection</a></p>
+<p><a href="#" id="greedy-train">Greedy Selection (Training Data)</a></p>
+<p><a href="#" id="greedy-test">Greedy Selection (Testing Data)</a></p>
 
 <div id="ent_list_form">
 <form name="ent_list_form" action="" method="get">
