@@ -1,9 +1,8 @@
 #!/usr/bin/python
 '''
-Get the optimized evaluation performance of results from generating the optimal
-subset of related entities from the whole entity candidate set of Wikipedia
+Apply the optimized entity set from training data to testing data
 
-query-opt-ent.py <query_id>
+train-test-opt-ent.py
 
 '''
 ## use float division instead of integer division
@@ -194,9 +193,11 @@ def score_confusion_matrix (scored_doc_list, annotation, debug=False):
 
 class TuneQueryOptEnt():
   def __init__(self):
-    self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+    self._train_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.train_edmap_db)
-      #db=RedisDB.test_edmap_db)
+
+    self._test_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.test_edmap_db)
 
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.qrels_db)
@@ -207,112 +208,23 @@ class TuneQueryOptEnt():
     self._ret_list = {}
     self._cutoff_list = {}
 
-  def greedy_tune(self, query_id, qrels_key):
+  def greedy_tune(self, query_id):
     '''
     Generate the optimized related entity subset using greedy algorithm
     '''
-    qrels_key_hash = {'training-c': 1, 'testing-c': 1, 'training-rc': 1, 'testing-rc': 1}
-    if qrels_key not in qrels_key_hash:
-      print 'Invalid qrels_key: %s' % qrels_key
-      return
-
-    # load the qrels
-    str = self._qrels_db.hget(qrels_key, query_id)
-    qrels = json.loads(str)
-
-    # get all the available entity candidates
-    key = 'e2d-map-%s' % query_id
-    all_eid = self._edmap_db.hkeys(key)
-
-    all_eid.sort(key=lambda x: int(x))
-    key = 'ent-list-%s' % query_id
-    db_item = self._edmap_db.hmget(key, all_eid)
-
-    ent_hash = {}
-    for idx, ent in enumerate(db_item):
-      eid = all_eid[idx]
-      ent_hash[eid] = ent
-
-    # TODO select the subset of entities incrementally in a greedy way
-    sel_eid = {}
-    left_eid = {}
-    for eid in all_eid:
-      left_eid[eid] = 1
-    g_max_score = 0.0
-
-    while len(left_eid.keys()) > 0:
-      sel_num = len(sel_eid.keys())
-      left_num = len(left_eid.keys())
-      print '%d selected, %d left' %(sel_num, left_num)
-
-      # the max scores for this round
-      max_eid = None
-      max_score = 0.0
-
-      # iterate over all the left entities, and try to add one of them to the
-      # selected entity list to see whether it can lead to better prformance
-      for eid in left_eid:
-        cur_sel_eid = sel_eid.copy()
-        cur_sel_eid[eid] = 1
-        (cutoff, score) = self.max_perf(query_id, cur_sel_eid.keys(), qrels)
-
-        if score > max_score:
-          max_eid = cur_sel_eid.copy()
-          max_score = score
-
-      # if we can keep increasing the max performance in this round, keep
-      # going
-      if max_score > g_max_score:
-        g_max_score = max_score
-        sel_eid = max_eid.copy()
-
-        # remove the selected entity in this round from the left_eid list
-        left_eid_copy = left_eid.copy()
-        for eid in left_eid_copy:
-          if eid in sel_eid:
-            del left_eid[eid]
-            print 'Add entity: %s' % ent_hash[eid]
-        print 'Max F: %6.3f' % g_max_score
-
-      # otherwise, we have reached the local optimum, which means convergence.
-      # Thus, we stop here
-      else:
-        break
-
-    (cutoff, score) = self.max_perf(query_id, sel_eid.keys(), qrels)
-    scored_doc_list = self.get_doc_list(query_id, sel_eid.keys())
-    self._ret_list[query_id] = scored_doc_list
-    self._cutoff_list[query_id] = cutoff
-
-    self.save2db(query_id, sel_eid, cutoff)
-
-    sel_eid_list = sel_eid.keys()
-    sel_eid_list.sort(key=lambda x: int(x))
-    ent_list = []
-    for eid in sel_eid_list:
-      ent = ent_hash[eid]
-      ent_list.append(ent)
-
-    print 'Selected entity list [%d] :\n%s' % (len(ent_list), ', '.join(ent_list))
-    print '-' * 60
-    print 'Cutoff: %d' % cutoff
-    print 'Max F: %6.3f' % score
-
-    return score
-
-  def save2db(self, query_id, ent_list, cutoff):
-    '''
-    Save the related entity list to DB
-    '''
+    # load the optimized entity list and cutoff from DB
     key = 'greedy-ent-list-c'
     #key = 'greedy-ent-list-rc'
-
-    str = json.dumps(ent_list)
-    self._edmap_db.hset(key, query_id, str)
+    str = self._train_edmap_db.hget(key, query_id)
+    sel_eid = json.loads(str)
 
     key = 'greedy-cutoff-c'
     #key = 'greedy-cutoff-rc'
-    self._edmap_db.hset(key, query_id, cutoff)
+    cutoff = int(self._train_edmap_db.hget(key, query_id))
+
+    scored_doc_list = self.get_doc_list(query_id, sel_eid.keys())
+    self._ret_list[query_id] = scored_doc_list
+    self._cutoff_list[query_id] = cutoff
 
   def save_run_file(self, save_file):
     '''
@@ -356,11 +268,13 @@ class TuneQueryOptEnt():
     '''
     key = 'e2d-map-%s' % query_id
     eid_list.sort(key=lambda x: int(x))
-    e2d_list = self._edmap_db.hmget(key, eid_list)
+    e2d_list = self._test_edmap_db.hmget(key, eid_list)
 
     # generate the document list
     scored_doc_list = {}
     for e2d_str in e2d_list:
+      if None == e2d_str:
+        continue
       e2d = json.loads(e2d_str)
       for did in e2d:
         score = e2d[did]
@@ -393,46 +307,19 @@ class TuneQueryOptEnt():
 def main():
   parser = argparse.ArgumentParser(description=__doc__, usage=__doc__)
   parser.add_argument(
-    '--use-micro-averaging', default=False, action='store_true', dest='micro_is_true',
-      help='compute scores for each mention and then average regardless of entity.'\
-        'Default is macro averaging')
-  parser.add_argument(
-    '--include-relevant', default=False, action='store_true', dest='include_relevant',
-    help='in addition to documents rated central, also include those rated relevant')
-  parser.add_argument(
     '--debug', default=False, action='store_true', dest='debug',
     help='print out debugging diagnostics')
-  parser.add_argument('query_id')
   args = parser.parse_args()
-
-  tuner = TuneQueryOptEnt()
-
-  qrels_c_key = 'training-c'
-  #qrels_c_key = 'testing-c'
-  #score = tuner.greedy_tune(args.query_id, qrels_c_key)
-
-  qrels_rc_key = 'training-rc'
-  #qrels_rc_key = 'testing-rc'
-  #score = tuner.greedy_tune(args.query_id, qrels_rc_key)
 
   # run over all the queries
   query_id_list = range(0, 29, 1)
-  score_list = []
 
+  tuner = TuneQueryOptEnt()
   for query_id in query_id_list:
     print 'Query %d' % query_id
-    score = tuner.greedy_tune(str(query_id), qrels_c_key)
-    #score = tuner.greedy_tune(str(query_id), qrels_rc_key)
-    score_list.append(score)
-    #if len(score_list) > 5:
-      #break
+    tuner.greedy_tune(str(query_id))
 
-  if len(score_list):
-    avg = reduce(lambda x, y: x+y, score_list) / len(score_list)
-    print 'Average: %6.3f' % avg
-
-  tuner.save_run_file('runs/train/c-opt-ent')
-  #tuner.save_run_file('runs/test/c-opt-ent')
+  tuner.save_run_file('runs/tune/c-opt_ent')
 
 if __name__ == '__main__':
   try:
