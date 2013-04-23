@@ -384,12 +384,25 @@ class DocRevViewHandler(BaseHandler):
 
     return str.lower()
 
+class RedirectTuneHandler(BaseHandler):
+  '''
+  Redirecting legacy links to TuneHandler
+  '''
+  def get(self, query_id):
+    url = '/tune/%s/c' % query_id
+    self.redirect(url)
+
 class TuneHandler(BaseHandler):
   '''
   Tune the performance by adding or removing any related entities. The
   performance will be reported by F1 at diffrent levels of cutoffs.
   '''
-  def get(self, query_id):
+  def get(self, query_id, c_or_rc):
+    if c_or_rc not in ['c', 'rc']:
+      msg = 'Invalid URL. c or rc only!'
+      self.render("error.html", msg=msg)
+      return
+
     hash_key = 'query-%s' % query_id
     keys = self._rel_ent_dist_db.hkeys(hash_key)
     if 0 == len(keys):
@@ -421,14 +434,22 @@ class TuneHandler(BaseHandler):
       item['doc_num'] = len(map_json.keys())
       ent_list.append(item)
 
-    self.render("tune-view.html", query_id=query_id, query=query, ent_list=ent_list)
+    if 'c' == c_or_rc:
+      self.render("tune-view-c.html", query_id=query_id, query=query, ent_list=ent_list)
+    else:
+      self.render("tune-view-rc.html", query_id=query_id, query=query, ent_list=ent_list)
 
 class TunePerfHandler(BaseHandler):
   '''
   Tune the performance by changing the related entities (either adding,
   removing). The performance is reported by F1 (or SU) at each cufoff level
   '''
-  def get(self, query_id, ent_str):
+  def get(self, query_id, ent_str, c_or_rc):
+    if c_or_rc not in ['c', 'rc']:
+      msg = 'Invalid URL. c or rc only!'
+      self.render("error.html", msg=msg)
+      return
+
     # load the qrels
     key = 'testing-c'
     str = self._qrels_db.hget(key, query_id)
@@ -479,11 +500,16 @@ class TunePerfHandler(BaseHandler):
       line = '%d\t%6.3f\t%6.3f\n' %(cutoff, c_f1, rc_f1)
       self.write(line)
 
-class GreedyPerfHandler(BaseHandler):
+class TestGreedyPerfHandler(BaseHandler):
   '''
   Get the related entity list selected by the greedy algorithm
   '''
-  def get(self, query_id):
+  def get(self, query_id, c_or_rc):
+    if c_or_rc not in ['c', 'rc']:
+      msg = 'Invalid URL. c or rc only!'
+      self.render("error.html", msg=msg)
+      return
+
     key = 'greedy-ent-list-c'
     #key = 'greedy-ent-list-rc'
     sel_eid_str = self._test_edmap_db.hget(key, query_id)
@@ -504,7 +530,12 @@ class TrainGreedyPerfHandler(BaseHandler):
   '''
   Get the related entity list selected by the greedy algorithm
   '''
-  def get(self, query_id):
+  def get(self, query_id, c_or_rc):
+    if c_or_rc not in ['c', 'rc']:
+      msg = 'Invalid URL. c or rc only!'
+      self.render("error.html", msg=msg)
+      return
+
     key = 'greedy-ent-list-c'
     #key = 'greedy-ent-list-rc'
     sel_eid_str = self._train_edmap_db.hget(key, query_id)
@@ -686,13 +717,17 @@ class Application(tornado.web.Application):
       (r"/ent/(\d+)", EntViewHandler),
       (r"/ent/dist/(\d+)", EntDistHandler),
       (r"/ent/(\d+)/(\d+-\d+)", EntRevHandler),
+
       (r"/doc/(\d+)", DocListHandler),
       (r"/doc/(\d+)/(\d+)", DocViewHandler),
       (r"/doc/(\d+)/(\d+)/(\d+-\d+)", DocRevViewHandler),
-      (r"/tune/(\d+)", TuneHandler),
-      (r"/tune/(\d+)/([\d\+]+)", TunePerfHandler),
-      (r"/tune/(\d+)/greedy", GreedyPerfHandler),
-      (r"/tune/(\d+)/greedy/train", TrainGreedyPerfHandler),
+
+      (r"/tune/(\d+)", RedirectTuneHandler),
+      (r"/tune/(\d+)/(\w+)", TuneHandler),
+      (r"/tune/(\d+)/([\d\+]+)/(\w+)", TunePerfHandler),
+      (r"/tune/(\d+)/greedy/train/(\w+)", TrainGreedyPerfHandler),
+      (r"/tune/(\d+)/greedy/test/(\w+)", TestGreedyPerfHandler),
+
       (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": "/local/data/xliu/www"}),
     ]
 

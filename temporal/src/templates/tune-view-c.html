@@ -22,7 +22,7 @@ $(function () {
             },
     
             title: {
-                text: '{{ query }}'
+                text: 'C - {{ query }}'
             },
     
             subtitle: {
@@ -94,7 +94,7 @@ $(function () {
             },
     
             series: [{
-                name: 'All Entities - C',
+                name: 'All Entities',
                 lineWidth: 4,
                 marker: {
                     radius: 4
@@ -102,7 +102,7 @@ $(function () {
                 color: '#0000FF'
             },
             {
-                name: 'All Entities - RC',
+                name: 'Selected Entities',
                 lineWidth: 4,
                 marker: {
                     radius: 4
@@ -110,7 +110,7 @@ $(function () {
                 color: '#00FF00'
             },
             {
-                name: 'Selected Entities - C',
+                name: 'Greedy Training',
                 lineWidth: 2,
                 marker: {
                     radius: 4
@@ -118,7 +118,7 @@ $(function () {
                 color: '#FF0000'
             },
             {
-                name: 'Selected Entities - RC',
+                name: 'Greedy Testing',
                 lineWidth: 2,
                 marker: {
                     radius: 4
@@ -133,9 +133,9 @@ $(function () {
         // to the options and initiate the chart.
         // This data is obtained by exporting a GA custom report to TSV.
         // http://api.jquery.com/jQuery.get/
-        jQuery.get('/tune/{{ query_id }}/+', null, function(tsv, state, xhr) {
+        jQuery.get('/tune/{{ query_id }}/+/c', null, function(tsv, state, xhr) {
             var lines = [],
-                listen = false,
+                listen = true,
                 date,
     
                 // set up the two data series
@@ -150,12 +150,6 @@ $(function () {
             // split the data return into lines and parse them
             tsv = tsv.split(/\n/g);
             jQuery.each(tsv, function(i, line) {
-               if (line == 'date\tclose') {
-                  listen = false;
-                }else{
-                	listen = true;
-                }
-    
                 // all data lines start with a double quote
                 if (listen) {
                     line = line.split(/\t/);
@@ -175,7 +169,7 @@ $(function () {
             });
     
             options.series[0].data = c_f1Values;
-            options.series[1].data = rc_f1Values;
+            //options.series[1].data = rc_f1Values;
             chart = new Highcharts.Chart(options);
         });
   
@@ -201,6 +195,7 @@ $(function () {
     });
 
     //updateGraph();
+    chart.series[1].setVisible(false, false);
     chart.series[2].setVisible(false, false);
     chart.series[3].setVisible(false, true);
   });
@@ -487,6 +482,7 @@ Related entity List: <input type="text" name="ent_list_input" id="ent_list_input
 </div>
 
 <div id="rel_ent_cloud">
+  <a id="cur_curve" href="#" rel="sel">Current Curve</a>
   <p>{{ len(ent_list) }} related entities in total.</p>
   {% for item in ent_list %}
   <a href="#{{ item.eid }}" rel="{{ item.eid }}" class="selected">{{ item.ent }} 
