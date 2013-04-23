@@ -304,14 +304,14 @@ class TuneQueryOptEnt():
     '''
     Save the related entity list to DB
     '''
-    key = 'greedy-ent-list-c'
-    #key = 'greedy-ent-list-rc'
+    #key = 'greedy-ent-list-c'
+    key = 'greedy-ent-list-rc'
 
     str = json.dumps(ent_list)
     self._edmap_db.hset(key, query_id, str)
 
-    key = 'greedy-cutoff-c'
-    #key = 'greedy-cutoff-rc'
+    #key = 'greedy-cutoff-c'
+    key = 'greedy-cutoff-rc'
     self._edmap_db.hset(key, query_id, cutoff)
 
   def save_run_file(self, save_file):
@@ -421,8 +421,8 @@ def main():
 
   for query_id in query_id_list:
     print 'Query %d' % query_id
-    score = tuner.greedy_tune(str(query_id), qrels_c_key)
-    #score = tuner.greedy_tune(str(query_id), qrels_rc_key)
+    #score = tuner.greedy_tune(str(query_id), qrels_c_key)
+    score = tuner.greedy_tune(str(query_id), qrels_rc_key)
     score_list.append(score)
     #if len(score_list) > 5:
       #break
@@ -431,8 +431,10 @@ def main():
     avg = reduce(lambda x, y: x+y, score_list) / len(score_list)
     print 'Average: %6.3f' % avg
 
-  tuner.save_run_file('runs/train/c-opt-ent')
-  #tuner.save_run_file('runs/test/c-opt-ent')
+  #tuner.save_run_file('runs/train/c-opt_greedy')
+  tuner.save_run_file('runs/train/rc-opt_greedy')
+  #tuner.save_run_file('runs/test/c-opt_greedy')
+  #tuner.save_run_file('runs/test/rc-opt_greedy')
 
 if __name__ == '__main__':
   try:

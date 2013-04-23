@@ -213,13 +213,13 @@ class TuneQueryOptEnt():
     Generate the optimized related entity subset using greedy algorithm
     '''
     # load the optimized entity list and cutoff from DB
-    key = 'greedy-ent-list-c'
-    #key = 'greedy-ent-list-rc'
+    #key = 'greedy-ent-list-c'
+    key = 'greedy-ent-list-rc'
     str = self._train_edmap_db.hget(key, query_id)
     sel_eid = json.loads(str)
 
-    key = 'greedy-cutoff-c'
-    #key = 'greedy-cutoff-rc'
+    #key = 'greedy-cutoff-c'
+    key = 'greedy-cutoff-rc'
     cutoff = int(self._train_edmap_db.hget(key, query_id))
 
     scored_doc_list = self.get_doc_list(query_id, sel_eid.keys())
@@ -319,7 +319,8 @@ def main():
     print 'Query %d' % query_id
     tuner.greedy_tune(str(query_id))
 
-  tuner.save_run_file('runs/tune/c-opt_ent')
+  #tuner.save_run_file('runs/tune/c-opt_greedy')
+  tuner.save_run_file('runs/tune/rc-opt_greedy')
 
 if __name__ == '__main__':
   try:

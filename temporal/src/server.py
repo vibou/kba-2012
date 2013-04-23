@@ -511,7 +511,10 @@ class TestGreedyPerfHandler(BaseHandler):
       return
 
     key = 'greedy-ent-list-c'
-    #key = 'greedy-ent-list-rc'
+
+    if 'rc' == c_or_rc:
+      key = 'greedy-ent-list-rc'
+
     sel_eid_str = self._test_edmap_db.hget(key, query_id)
     sel_eid = json.loads(sel_eid_str)
     eid_keys = sel_eid.keys()
@@ -537,7 +540,9 @@ class TrainGreedyPerfHandler(BaseHandler):
       return
 
     key = 'greedy-ent-list-c'
-    #key = 'greedy-ent-list-rc'
+    if 'rc' == c_or_rc:
+      key = 'greedy-ent-list-rc'
+
     sel_eid_str = self._train_edmap_db.hget(key, query_id)
     sel_eid = json.loads(sel_eid_str)
     eid_keys = sel_eid.keys()

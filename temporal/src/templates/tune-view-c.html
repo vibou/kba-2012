@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>[{{ query }}]</title>
+    <title>C - [{{ query }}]</title>
 
 		<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
     <script type="text/javascript">
@@ -93,7 +93,8 @@ $(function () {
                 }
             },
     
-            series: [{
+            series: [
+            {
                 name: 'All Entities',
                 lineWidth: 4,
                 marker: {
@@ -184,6 +185,7 @@ $(function () {
       }
     });
 
+    $('a#sel_curve').attr('rel', 'select');
     updateGraph();
   });
   
@@ -194,6 +196,7 @@ $(function () {
       $(this).attr('class', "selected");
     });
 
+    $('a#sel_curve').attr('rel', 'select');
     //updateGraph();
     chart.series[1].setVisible(false, false);
     chart.series[2].setVisible(false, false);
@@ -204,7 +207,7 @@ $(function () {
     // first, prevent the default action, therefore to keep URL unchanged
     event.preventDefault();
     
-    jQuery.get('/tune/{{ query_id }}/greedy/train', null, function(tsv, state, xhr) {
+    jQuery.get('/tune/{{ query_id }}/greedy/train/c', null, function(tsv, state, xhr) {
       var lines = [],
       // set up the two data series
       ent_hash = {};
@@ -248,6 +251,7 @@ $(function () {
       });
 
       // update the graph then
+      $('a#sel_curve').attr('rel', 'train');
       updateGraph();
     });
   });
@@ -256,7 +260,7 @@ $(function () {
     // first, prevent the default action, therefore to keep URL unchanged
     event.preventDefault();
     
-    jQuery.get('/tune/{{ query_id }}/greedy', null, function(tsv, state, xhr) {
+    jQuery.get('/tune/{{ query_id }}/greedy/test/c', null, function(tsv, state, xhr) {
       var lines = [],
       // set up the two data series
       ent_hash = {};
@@ -300,6 +304,7 @@ $(function () {
       });
 
       // update the graph then
+      $('a#sel_curve').attr('rel', 'test');
       updateGraph();
     });
   });
@@ -330,6 +335,7 @@ $(function () {
       });
 
       // update the graph then
+      $('a#sel_curve').attr('rel', 'select');
       updateGraph();
     }
     return false;
@@ -346,6 +352,7 @@ $(function () {
       $(this).attr('class', "selected");
     }
 
+    $('a#sel_curve').attr('rel', 'select');
     updateGraph();
   });
 
@@ -363,7 +370,7 @@ $(function () {
     ent_list = query_list.join('+');
     console.log("selected queries: " + ent_list);
       
-    jQuery.get('/tune/{{ query_id }}/' + ent_list, null, function(tsv, state, xhr) {
+    jQuery.get('/tune/{{ query_id }}/' + ent_list + '/c', null, function(tsv, state, xhr) {
             var lines = [],
                 listen = false,
                 date,
@@ -405,15 +412,18 @@ $(function () {
             });
 
             // update the graph accordingly
-            //options.series[2].data = c_f1Values;
-            //options.series[3].data = rc_f1Values;
-            //chart = new Highcharts.Chart(options);
-
-            chart.series[2].setVisible(true, false);
-            chart.series[2].setData(c_f1Values, false);
-
-            //chart.series[3].setVisible(true, true);
-            chart.series[3].setData(rc_f1Values, true);
+            // we need to know which is the selected curve we need to update
+            sel_curve = $('a#sel_curve').attr('rel');
+            if('select' === sel_curve){
+              chart.series[1].setVisible(true, false);
+              chart.series[1].setData(c_f1Values, true);
+            }else if('train' === sel_curve){
+              chart.series[2].setVisible(true, false);
+              chart.series[2].setData(c_f1Values, true);
+            }else{
+              chart.series[3].setVisible(true, false);
+              chart.series[3].setData(c_f1Values, true);
+            }
         });
   }
 
@@ -481,8 +491,8 @@ Related entity List: <input type="text" name="ent_list_input" id="ent_list_input
 </form>
 </div>
 
+<a id="sel_curve" href="#" rel="select" style="display:none;">Current Curve</a>
 <div id="rel_ent_cloud">
-  <a id="cur_curve" href="#" rel="sel">Current Curve</a>
   <p>{{ len(ent_list) }} related entities in total.</p>
   {% for item in ent_list %}
   <a href="#{{ item.eid }}" rel="{{ item.eid }}" class="selected">{{ item.ent }} 
