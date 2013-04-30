@@ -48,8 +48,10 @@ class WikiMatch():
       db=RedisDB.rel_ent_dist_db)
 
   _edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.train_edmap_db)
+      #db=RedisDB.train_edmap_db)
       #db=RedisDB.test_edmap_db)
+      #db=RedisDB.all_train_edmap_db)
+      db=RedisDB.all_test_edmap_db)
 
   def format_query(self, query):
     '''
@@ -210,8 +212,8 @@ class WikiMatch():
       doc_item['stream_data'] = self.sanitize(db_item[4])
 
       # for one process, we only handle the documents for the current query only
-      if doc_item['query'] != query:
-        continue
+      #if doc_item['query'] != query:
+        #continue
 
       self._doc_item_list.append(doc_item)
 

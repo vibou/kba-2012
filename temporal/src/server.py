@@ -56,6 +56,14 @@ class BaseHandler(tornado.web.RequestHandler):
   def _qrels_db(self):
     return self.application._qrels_db
 
+  @property
+  def _all_train_edmap_db(self):
+    return self.application._all_train_edmap_db
+
+  @property
+  def _all_test_edmap_db(self):
+    return self.application._all_test_edmap_db
+
 class HomeHandler(BaseHandler):
   def get(self):
     url = '/ent'
@@ -714,6 +722,102 @@ def score_confusion_matrix (scored_doc_list, annotation, debug=False):
 
     return CM
 
+class TempHandler(BaseHandler):
+  '''
+  Explore the correlations between the temporal distributions of related
+  entities
+  '''
+  def get(self, query_id):
+    hash_key = 'query-%s' % query_id
+    keys = self._rel_ent_dist_db.hkeys(hash_key)
+    if 0 == len(keys):
+      msg = 'no data found'
+      self.render("error.html", msg=msg)
+      return
+
+    query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
+
+    ## retrieve the list of related entities
+    ## here we only retrieve the entities which have occurred in the relevant
+    ## documents, i.e. effective entities
+    key = 'e2d-map-%s' % query_id
+    eid_keys = self._test_edmap_db.hkeys(key)
+    eid_keys.sort(key=lambda x: int(x))
+    map_db_item = self._test_edmap_db.hmget(key, eid_keys)
+
+    key = 'ent-list-%s' % query_id
+    db_item = self._test_edmap_db.hmget(key, eid_keys)
+
+    ent_list = []
+    for idx, ent in enumerate(db_item):
+      eid = eid_keys[idx]
+      map_str = map_db_item[idx]
+      map_json = json.loads(map_str)
+      item = DictItem()
+      item['eid'] = eid
+      item['ent'] = ent
+      item['doc_num'] = len(map_json.keys())
+      ent_list.append(item)
+
+    self.render("temp-view.html", query_id=query_id, query=query, ent_list=ent_list)
+
+class TempQueryHandler(BaseHandler):
+  '''
+  Return the temporal distribution of query entity
+  '''
+  def get(self, query_id):
+    # generate the document list
+    key = 'd2e-map-%s' % query_id
+    did_keys = self._test_edmap_db.hkeys(key)
+
+    doc_dist_hash = {}
+    for did in did_keys:
+      epoch = float(did.split('-')[0])
+      d_time = datetime.datetime.utcfromtimestamp(epoch)
+      d_date = '%d-%.2d-%.2d' %(d_time.year, d_time.month, d_time.day)
+      if d_date not in doc_dist_hash:
+        doc_dist_hash[d_date] = 1
+      else:
+        doc_dist_hash[d_date] += 1
+
+    doc_keys = doc_dist_hash.keys()
+    doc_keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
+    for d_date in doc_keys:
+      num = doc_dist_hash[d_date]
+      line = '%s\t%d\n' %(d_date, num)
+      self.write(line)
+
+class TempEntHandler(BaseHandler):
+  '''
+  Return the temporal distribution of a related entity
+  '''
+  def get(self, query_id, ent_id):
+    # generate the document list
+    key = 'e2d-map-%s' % query_id
+    if not self._all_test_edmap_db.hexists(key, ent_id):
+      msg = 'Invalid ent_id: %s' % ent_id
+      self.render("error.html", msg=msg)
+      return
+
+    e2d_str = self._test_edmap_db.hget(key, ent_id)
+    e2d = json.loads(e2d_str)
+    doc_dist_hash = {}
+    for did in e2d:
+      epoch = float(did.split('-')[0])
+      d_time = datetime.datetime.utcfromtimestamp(epoch)
+      d_date = '%d-%.2d-%.2d' %(d_time.year, d_time.month, d_time.day)
+      if d_date not in doc_dist_hash:
+        doc_dist_hash[d_date] = 1
+      else:
+        doc_dist_hash[d_date] += 1
+
+    doc_keys = doc_dist_hash.keys()
+    doc_keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
+    for d_date in doc_keys:
+      num = doc_dist_hash[d_date]
+      line = '%s\t%d\n' %(d_date, num)
+      self.write(line)
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
@@ -732,6 +836,10 @@ class Application(tornado.web.Application):
       (r"/tune/(\d+)/([\d\+]+)/(\w+)", TunePerfHandler),
       (r"/tune/(\d+)/greedy/train/(\w+)", TrainGreedyPerfHandler),
       (r"/tune/(\d+)/greedy/test/(\w+)", TestGreedyPerfHandler),
+
+      (r"/temp/(\d+)", TempHandler),
+      (r"/temp/(\d+)/query", TempQueryHandler),
+      (r"/temp/(\d+)/(\d+)", TempEntHandler),
 
       (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": "/local/data/xliu/www"}),
     ]
@@ -761,6 +869,12 @@ class Application(tornado.web.Application):
 
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.qrels_db)
+
+    self._all_train_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.all_train_edmap_db)
+
+    self._all_test_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.all_test_edmap_db)
 
 def main():
   tornado.options.parse_command_line()

@@ -1,0 +1,406 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Temporal - [{{ query }}]</title>
+
+		<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+    <script type="text/javascript">
+
+$(function () {
+    var chart;
+    $(document).ready(function() {
+    
+        // define the options
+        var options = {
+    
+            chart: {
+                renderTo: 'container',
+                zoomType: 'x',
+                spacingLeft: 20,
+                spacingRight: 20,
+            },
+    
+            title: {
+                text: 'Temporal - {{ query }}'
+            },
+    
+            subtitle: {
+                text: 'Click and drag in the plot area to zoom in'
+            },
+    
+            xAxis: {
+                type: 'datetime',
+                tickInterval: 1000 * 3600 * 24 * 7, // 7 days, one week
+                tickWidth: 0,
+                gridLineWidth: 1,
+                labels: {
+                    align: 'left',
+                    x: 0,
+                    y: 0
+                }
+            },
+    
+            yAxis: [{ // left y axis
+                title: {
+                    text: '# of Query Entity'
+                },
+                labels: {
+                    align: 'left',
+                    x: 0,
+                    y: 16,
+                    formatter: function() {
+                        return this.value;
+                    }
+                },
+                showFirstLabel: false
+            },{
+                gridLineWidth: 0,
+                opposite: true,
+                title: {
+                    text: '# of Selected Entity'
+                },
+                labels: {
+                    align: 'right',
+                    x: 0,
+                    y: 16,
+                    formatter: function() {
+                        return this.value;
+                    }
+                },
+                showFirstLabel: false
+            }],
+    
+            legend: {
+                align: 'left',
+                verticalAlign: 'top',
+                y: 20,
+                floating: true,
+                borderWidth: 0
+            },
+    
+            tooltip: {
+                shared: true,
+                crosshairs: true
+            },
+    
+            plotOptions: {
+                series: {
+                    cursor: 'pointer',
+                    point: {
+                        events: {
+                            click: function() {
+                                hs.htmlExpand(null, {
+                                    pageOrigin: {
+                                        x: this.pageX,
+                                        y: this.pageY
+                                    },
+                                    headingText: this.series.name,
+                                    maincontentText: Highcharts.dateFormat('%A, %b %e, %Y', this.x) +':<br/> '+
+                                        this.y +' visits',
+                                    width: 200
+                                });
+                            }
+                        }
+                    },
+                    marker: {
+                        lineWidth: 1
+                    }
+                }
+            },
+    
+            series: [
+            {
+                name: 'Query Entity',
+                lineWidth: 4,
+                marker: {
+                    radius: 4
+                },
+                color: '#0000FF',
+                yAxis : 0
+            },
+            {
+                name: 'Selected Entity',
+                lineWidth: 4,
+                marker: {
+                    radius: 4
+                },
+                color: '#00FF00',
+                yAxis : 1
+            }
+            ]
+        };
+    
+    
+        // Load data asynchronously using jQuery. On success, add the data
+        // to the options and initiate the chart.
+        // This data is obtained by exporting a GA custom report to TSV.
+        // http://api.jquery.com/jQuery.get/
+        jQuery.get('/temp/{{ query_id }}/query', null, function(tsv, state, xhr) {
+            var lines = [],
+                listen = true,
+                date,
+    
+                // set up the two data series
+                numValues = [];
+    
+            // inconsistency
+            if (typeof tsv !== 'string') {
+                tsv = xhr.responseText;
+            }
+    
+            // split the data return into lines and parse them
+            tsv = tsv.split(/\n/g);
+            jQuery.each(tsv, function(i, line) {
+                // all data lines start with a double quote
+                if (listen) {
+                    line = line.split(/\t/);
+                    if(2 != line.length){
+                      return;
+                    }
+    
+                    numValues.push([
+                        Date.parse(line[0]),
+                        parseInt(line[1], 10)
+                    ]);
+                }
+            });
+    
+            options.series[0].data = numValues;
+            chart = new Highcharts.Chart(options);
+        });
+  
+  $('a#reset').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+    $('div#rel_ent_cloud a').each(function (i) {
+      $(this).attr('class', "unselected");
+    });
+
+    chart.series[1].setVisible(false, true);
+  });
+
+  $('a#greedy-train').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+    
+    jQuery.get('/tune/{{ query_id }}/greedy/train/c', null, function(tsv, state, xhr) {
+      var lines = [],
+      // set up the two data series
+      ent_hash = {};
+    
+      // inconsistency
+      if (typeof tsv !== 'string') {
+        tsv = xhr.responseText;
+      }
+    
+      // split the data return into lines and parse them
+      tsv = tsv.split(/\n/g);
+      jQuery.each(tsv, function(i, line) {
+        if (line == 'N/A') {
+          return;
+        }
+    
+        line = line.split(/\t/);
+        if(2 != line.length){
+          return;
+        }
+    
+        ent_hash[line[0]] = 1;
+      });
+
+      ent_list = []
+      $('div#rel_ent_cloud a').each(function (i) {
+        id = $(this).attr('rel') 
+        if (ent_hash.hasOwnProperty(id)){
+          //$(this).attr('class', "selected");
+          ent_list.push($(this).text());
+        }else{
+          //$(this).attr('class', "unselected");
+        }
+      });
+      
+      $('a#greedy-train').siblings('span').remove();
+      jQuery.each(ent_list, function(i, ent) {
+        span = '<span> ' + ent + ' </span>';
+        $('a#greedy-train').after(span);
+      });
+
+    });
+  });
+  
+  $('a#greedy-test').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+    
+    jQuery.get('/tune/{{ query_id }}/greedy/test/c', null, function(tsv, state, xhr) {
+      var lines = [],
+      // set up the two data series
+      ent_hash = {};
+    
+      // inconsistency
+      if (typeof tsv !== 'string') {
+        tsv = xhr.responseText;
+      }
+    
+      // split the data return into lines and parse them
+      tsv = tsv.split(/\n/g);
+      jQuery.each(tsv, function(i, line) {
+        if (line == 'N/A') {
+          return;
+        }
+    
+        line = line.split(/\t/);
+        if(2 != line.length){
+          return;
+        }
+    
+        ent_hash[line[0]] = 1;
+      });
+
+      ent_list = []
+      $('div#rel_ent_cloud a').each(function (i) {
+        id = $(this).attr('rel') 
+        if (ent_hash.hasOwnProperty(id)){
+          //$(this).attr('class', "selected");
+          ent_list.push($(this).text());
+        }else{
+          //$(this).attr('class', "unselected");
+        }
+      });
+
+      $('a#greedy-test').siblings('span').remove();
+      jQuery.each(ent_list, function(i, ent) {
+        span = '<span> ' + ent + ' </span>';
+        $('a#greedy-test').after(span);
+      });
+
+    });
+  });
+  
+  $('div#rel_ent_cloud a').click(function(event) {
+    // first, prevent the default action, therefore to keep URL unchanged
+    event.preventDefault();
+
+    // reset selections first
+    $('div#rel_ent_cloud a').each(function (i) {
+      $(this).attr('class', "unselected");
+    });
+    // set selected flag
+    $(this).attr('class', "selected");
+
+    updateGraph();
+  });
+
+  function updateGraph(){
+    // collect the list of queries which have been selected
+    var query_list = new Array();
+    $('div#rel_ent_cloud a').each(function (i) {
+      if ($(this).attr('class') == "selected"){
+        query_list.push(this.rel);
+      }
+    });
+
+    // verbose output
+    ent_id = query_list[0];
+    console.log('Ent_ID: ' + ent_id); 
+    jQuery.get('/temp/{{ query_id }}/' + ent_id, null, function(tsv, state, xhr) {
+            var lines = [],
+                listen = true,
+                date,
+    
+                // set up the two data series
+                numValues = [];
+    
+            // inconsistency
+            if (typeof tsv !== 'string') {
+                tsv = xhr.responseText;
+            }
+    
+            // split the data return into lines and parse them
+            tsv = tsv.split(/\n/g);
+            jQuery.each(tsv, function(i, line) {
+                // all data lines start with a double quote
+                if (listen) {
+                    line = line.split(/\t/);
+                    if(2 != line.length){
+                      return;
+                    }
+    
+                    numValues.push([
+                        Date.parse(line[0]),
+                        parseInt(line[1], 10)
+                    ]);
+                }
+            });
+
+            // update the graph accordingly
+            chart.series[1].setVisible(true, false);
+            chart.series[1].setData(numValues, true);
+        });
+  }
+
+    });
+    
+});
+    </script>
+
+    <style type="text/css">
+    body {
+      margin-top: 1.0em;
+      background-color: #ffffff;
+      font-family: "helvetica";
+      color: #000000;
+    }
+    div#rel_ent_cloud {
+      font: Arial, "MS Trebuchet", sans-serif;
+    }
+    div#rel_ent_cloud a {
+      text-decoration: none;
+      margin: 10px;
+      padding-top: 10px;
+      font-size: 14pt;
+    }
+    div#rel_ent_cloud a:hover {
+      text-decoration: underline;
+    }
+    div#rel_ent_cloud a.selected {
+      color:#66CC33;
+    }
+    div#rel_ent_cloud a.unselected {
+      color:#FF0000;
+    }
+    label.error{
+      color:#FF0000;
+    }
+    </style>
+	</head>
+	<body>
+<script src="http://code.highcharts.com/highcharts.js"></script>
+<script src="http://code.highcharts.com/modules/exporting.js"></script>
+
+<!-- Additional files for the Highslide popup effect -->
+<script type="text/javascript" src="http://www.highcharts.com/highslide/highslide-full.min.js"></script>
+<script type="text/javascript" src="http://www.highcharts.com/highslide/highslide.config.js" charset="utf-8"></script>
+<link rel="stylesheet" type="text/css" href="http://www.highcharts.com/highslide/highslide.css" />
+
+</script>
+
+<p><a href="/ent">&lt;- Return to list</a></p>
+<a target = "_blank" href="http://en.wikipedia.org/wiki/{{ query }}">Wikipedia page</a>
+<div id="container" style="min-width: 400px; height: 700px; margin: 0 auto"></div>
+
+<p><a href="#" id="reset">Reset Selection</a></p>
+<p><a href="#" id="greedy-train">Greedy Selection (Training Data)</a></p>
+<p><a href="#" id="greedy-test">Greedy Selection (Testing Data)</a></p>
+
+<a id="sel_curve" href="#" rel="select" style="display:none;">Current Curve</a>
+<div id="rel_ent_cloud">
+  <p>{{ len(ent_list) }} related entities in total.</p>
+  {% for item in ent_list %}
+  <a href="#{{ item.eid }}" rel="{{ item.eid }}" class="unselected">{{ item.ent }} 
+  ({{ item.doc_num}})</a>
+  {% end %}
+</div>
+</body>
+</html>

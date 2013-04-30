@@ -15,6 +15,9 @@ class RedisDB(object):
     test_edmap_db = 3
     qrels_db = 4
 
+    all_train_edmap_db = 7
+    all_test_edmap_db = 8
+
     test_db = 2
 
     oair_doc_train_db = 10
