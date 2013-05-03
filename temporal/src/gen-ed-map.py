@@ -50,8 +50,8 @@ class WikiMatch():
   _edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       #db=RedisDB.train_edmap_db)
       #db=RedisDB.test_edmap_db)
-      #db=RedisDB.all_train_edmap_db)
-      db=RedisDB.all_test_edmap_db)
+      db=RedisDB.all_train_edmap_db)
+      #db=RedisDB.all_test_edmap_db)
 
   def format_query(self, query):
     '''

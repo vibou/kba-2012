@@ -26,9 +26,10 @@ from kba_thrift.ttypes import StreamItem, StreamTime, ContentItem
 
 define("port", default=8888, help="run on the given port", type=int)
 
-#corpus_dir = './corpus/cleansed'
 #corpus_dir = './uncompressed/training'
-corpus_dir = './corpus/testing'
+
+corpus_dir = './corpus/training'
+#corpus_dir = './corpus/testing'
 
 class Dir(dict):
   """
@@ -191,6 +192,11 @@ class SearchHandler(tornado.web.RequestHandler):
   def get(self, epoch, id):
     time = datetime.datetime.utcfromtimestamp(float(epoch))
     date = '%d-%.2d-%.2d-%.2d' %(time.year, time.month, time.day, time.hour)
+
+    if 2011 == time.year:
+      corpus_dir = './corpus/training'
+    else:
+      corpus_dir = './corpus/testing'
     date_dir = os.path.join(corpus_dir, date)
 
     target_id = '%s-%s' %(epoch, id)

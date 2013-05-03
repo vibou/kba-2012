@@ -1,6 +1,6 @@
 #!/usr/bin/python
 '''
-uncompress the corpus
+Check the uncompressed data, if it is not processed, uncompress it
 
 uncompress.py <gpg_key_path> <thrift_dir> <date_hour> <save_dir>
 
@@ -42,6 +42,24 @@ def decrypt_and_verify(gpg_key_path, thrift_dir, date_hour, save_dir):
     for fname in os.listdir(os.path.join(thrift_dir, date_hour)):
         ## ignore other files, e.g. stats.json
         if not fname.endswith('.xz.gpg'): continue
+
+        # check whether the file have been processed and is ready on the disk
+        save_data_dir = save_dir + date_hour
+        if not os.path.exists(save_data_dir):
+            os.makedirs(save_data_dir)
+        parts = fname.split('.')
+        assert 'gpg' == parts.pop()
+        assert 'xz' == parts.pop()
+        save_file_name = os.path.join(save_data_dir, '.'.join(parts))
+        try:
+          with open(save_file_name):
+            # file exists, we skip it
+            #print 'Skipping %s' % save_file_name
+            continue
+        except:
+          # it does not exist, we process it
+          print 'Processing %s' % save_file_name
+          #continue
 
         ### reverse the steps from above:
         ## load the encrypted data
@@ -100,14 +118,7 @@ def decrypt_and_verify(gpg_key_path, thrift_dir, date_hour, save_dir):
             '%r != %r' % (content_md5, fname.split('.')[1])
 
         ## save the thirft data
-        save_data_dir = save_dir + date_hour
-        if not os.path.exists(save_data_dir):
-            os.makedirs(save_data_dir)
-        parts = fname.split('.')
-        assert 'gpg' == parts.pop()
-        assert 'xz' == parts.pop()
-        open(os.path.join(save_data_dir, '.'.join(parts)),
-            'wb').write(thrift_data)
+        open(save_file_name, 'wb').write(thrift_data)
 
         ## free memory
         thrift_data = None
