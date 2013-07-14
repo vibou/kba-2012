@@ -1,9 +1,9 @@
 #!/usr/bin/python
 '''
-Get the optimized evaluation performance of results from generating the optimal
-subset of related entities from the whole entity candidate set of Wikipedia
+Apply greedy algorithm to select the optimized related entity set based on the
+judgments
 
-query-opt-ent.py <query_id>
+greedy-ent.py <query_id>
 
 '''
 ## use float division instead of integer division
@@ -196,8 +196,12 @@ def score_confusion_matrix (scored_doc_list, annotation, debug=False):
 class TuneQueryOptEnt():
   def __init__(self):
     self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.train_edmap_db)
-      #db=RedisDB.test_edmap_db)
+      #db=RedisDB.train_edmap_db)
+      db=RedisDB.test_edmap_db)
+
+    self._greedy_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      #db=RedisDB.train_greedy_db)
+      db=RedisDB.test_greedy_db)
 
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.qrels_db)
@@ -305,15 +309,15 @@ class TuneQueryOptEnt():
     '''
     Save the related entity list to DB
     '''
-    #key = 'greedy-ent-list-c'
-    key = 'greedy-ent-list-rc'
+    key = 'greedy-ent-list-c'
+    #key = 'greedy-ent-list-rc'
 
     str = json.dumps(ent_list)
-    self._edmap_db.hset(key, query_id, str)
+    self._greedy_db.hset(key, query_id, str)
 
-    #key = 'greedy-cutoff-c'
-    key = 'greedy-cutoff-rc'
-    self._edmap_db.hset(key, query_id, cutoff)
+    key = 'greedy-cutoff-c'
+    #key = 'greedy-cutoff-rc'
+    self._greedy_db.hset(key, query_id, cutoff)
 
   def save_run_file(self, save_file):
     '''
@@ -408,13 +412,11 @@ def main():
 
   tuner = TuneQueryOptEnt()
 
-  qrels_c_key = 'training-c'
-  #qrels_c_key = 'testing-c'
-  #score = tuner.greedy_tune(args.query_id, qrels_c_key)
+  #qrels_c_key = 'training-c'
+  qrels_c_key = 'testing-c'
 
-  qrels_rc_key = 'training-rc'
-  #qrels_rc_key = 'testing-rc'
-  #score = tuner.greedy_tune(args.query_id, qrels_rc_key)
+  #qrels_rc_key = 'training-rc'
+  qrels_rc_key = 'testing-rc'
 
   # run over all the queries
   query_id_list = range(0, 29, 1)
@@ -422,9 +424,11 @@ def main():
 
   for query_id in query_id_list:
     print 'Query %d' % query_id
-    #score = tuner.greedy_tune(str(query_id), qrels_c_key)
-    score = tuner.greedy_tune(str(query_id), qrels_rc_key)
+    score = tuner.greedy_tune(str(query_id), qrels_c_key)
+    #score = tuner.greedy_tune(str(query_id), qrels_rc_key)
     score_list.append(score)
+
+    # for debug only
     #if len(score_list) > 5:
       #break
 
@@ -432,9 +436,10 @@ def main():
     avg = reduce(lambda x, y: x+y, score_list) / len(score_list)
     print 'Average: %6.3f' % avg
 
+  ## save the results accordingly
   #tuner.save_run_file('runs/train/c-opt_greedy')
-  tuner.save_run_file('runs/train/rc-opt_greedy')
-  #tuner.save_run_file('runs/test/c-opt_greedy')
+  #tuner.save_run_file('runs/train/rc-opt_greedy')
+  tuner.save_run_file('runs/test/c-opt_greedy')
   #tuner.save_run_file('runs/test/rc-opt_greedy')
 
 if __name__ == '__main__':

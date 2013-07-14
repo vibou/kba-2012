@@ -10,6 +10,8 @@ class RedisDB(object):
 
     rel_ent_dist_db = 0
     qrels_db = 4
+    train_greedy_db = 5
+    test_greedy_db = 6
 
     # all the documents come from Balog's list published with OAIR paper
     train_edmap_db = 7
