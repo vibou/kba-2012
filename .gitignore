@@ -5,6 +5,7 @@
 
 org-corpus
 
+archives/
 corpus/
 gpg/
 training/
@@ -16,6 +17,9 @@ run/
 submit/
 backup/
 rumor/
+dump/
+eval/
+wikimarkup/
 
 indri/
 indri-*
