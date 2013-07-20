@@ -16,8 +16,8 @@ class RedisDB(object):
     # all the documents come from Balog's list published with OAIR paper
     train_edmap_db = 7
     test_edmap_db = 8
-    doc_train_db = 10
-    doc_test_db = 11
+    train_doc_db = 10
+    test_doc_db = 11
 
     # specifications related to bootstraping
     query_ent_list = 'query_ent_list'

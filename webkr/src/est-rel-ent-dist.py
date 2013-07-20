@@ -34,8 +34,8 @@ g_rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
     db=RedisDB.rel_ent_dist_db)
 
 g_exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-    db=RedisDB.doc_train_db)
-    #db=RedisDB.doc_test_db)
+    db=RedisDB.train_doc_db)
+    #db=RedisDB.test_doc_db)
 
 def log(m, newline='\n'):
   sys.stderr.write(m + newline)

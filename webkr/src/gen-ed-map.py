@@ -41,8 +41,8 @@ class WikiMatch():
   _d2e_hash = {}
 
   _doc_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      #db=RedisDB.doc_train_db)
-      db=RedisDB.doc_test_db)
+      #db=RedisDB.train_doc_db)
+      db=RedisDB.test_doc_db)
 
   _rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.rel_ent_dist_db)

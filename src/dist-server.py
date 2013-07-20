@@ -265,6 +265,9 @@ class IDFRelDistHandler(BaseHandler):
       log_idf = math.log(p_occ)
       w_ent = math.log(p_rel_occ)
 
+      line = '%6.3f\t%6.3f\n' %(log_idf, w_ent)
+      self.write(line)
+
       point = DictItem()
       point['occ_num'] = occ_num
       point['log_idf'] = log_idf
@@ -277,8 +280,8 @@ class IDFRelDistHandler(BaseHandler):
     for bin in list(chunks(point_list, 10)):
       median = int(len(bin)/2)
       med_point = bin[median]
-      line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
-      self.write(line)
+      #line = '%6.3f\t%6.3f\n' %(med_point['log_idf'], med_point['w_ent'])
+      #self.write(line)
 
 class IDFRelQueryDistHandler(BaseHandler):
   def get(self):
@@ -383,15 +386,15 @@ class Application(tornado.web.Application):
 
     # global database connections for all handles
     self._exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.train_exact_match_db)
-      #db=RedisDB.test_exact_match_db)
+      #db=RedisDB.train_exact_match_db)
+      db=RedisDB.test_exact_match_db)
 
     self._wiki_ent_list_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.wiki_ent_list_db)
 
     self._wiki_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.train_wiki_ent_dist_db)
-      #db=RedisDB.wiki_ent_dist_db)
+      #db=RedisDB.train_wiki_ent_dist_db)
+      db=RedisDB.wiki_ent_dist_db)
 
     self._annotation = self.load_annotation('eval/qrels/all.txt', True, False)
 
@@ -422,8 +425,8 @@ class Application(tornado.web.Application):
 
       stream_id = row[2]
       epoch = int(stream_id.split('-')[0])
-      #if not epoch > epoch_thred:
-      if epoch > epoch_thred:
+      if not epoch > epoch_thred:
+      #if epoch > epoch_thred:
         continue
 
       urlname = row[3]

@@ -425,7 +425,7 @@ if __name__ == '__main__':
         help='path to the directory containing run files')
     parser.add_argument('--annotation', help='path to the annotation file', required=True)
     parser.add_argument(
-        '--cutoff-step', type=int, default=1, dest = 'cutoff_step',
+        '--cutoff-step', type=int, default=50, dest = 'cutoff_step',
         help='step size used in computing scores tables and plots')
     parser.add_argument(
         '--unannotated-is-true-negative', default=False, action='store_true', dest='unan_is_true',
