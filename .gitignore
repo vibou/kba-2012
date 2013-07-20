@@ -4,6 +4,7 @@
 *.log
 
 org-corpus
+tornado
 
 archives/
 corpus/
