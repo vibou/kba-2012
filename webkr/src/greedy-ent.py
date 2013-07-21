@@ -194,14 +194,15 @@ def score_confusion_matrix (scored_doc_list, annotation, debug=False):
     return CM
 
 class TuneQueryOptEnt():
-  def __init__(self):
+  def __init__(self, opt, t_opt):
+    edmap_dict = {'train': RedisDB.train_edmap_db, 'test': RedisDB.test_edmap_db}
+    greedy_dict = {'train': RedisDB.train_greedy_db, 'test': RedisDB.test_greedy_db}
+
     self._edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      #db=RedisDB.train_edmap_db)
-      db=RedisDB.test_edmap_db)
+      db=edmap_dict[t_opt])
 
     self._greedy_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      #db=RedisDB.train_greedy_db)
-      db=RedisDB.test_greedy_db)
+      db=greedy_dict[t_opt])
 
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.qrels_db)
@@ -211,6 +212,9 @@ class TuneQueryOptEnt():
 
     self._ret_list = {}
     self._cutoff_list = {}
+
+    self._opt = opt
+    self._t_opt = t_opt
 
   def greedy_tune(self, query_id, qrels_key):
     '''
@@ -245,6 +249,7 @@ class TuneQueryOptEnt():
       left_eid[eid] = 1
     g_max_score = 0.0
 
+    so_far = 1
     while len(left_eid.keys()) > 0:
       sel_num = len(sel_eid.keys())
       left_num = len(left_eid.keys())
@@ -277,6 +282,9 @@ class TuneQueryOptEnt():
           if eid in sel_eid:
             del left_eid[eid]
             print 'Add entity: %s' % ent_hash[eid]
+            # keep the order for selected entities
+            sel_eid[eid] = so_far
+            so_far += 1
         print 'Max F: %6.3f' % g_max_score
 
       # otherwise, we have reached the local optimum, which means convergence.
@@ -309,14 +317,12 @@ class TuneQueryOptEnt():
     '''
     Save the related entity list to DB
     '''
-    #key = 'greedy-ent-list-c'
-    key = 'greedy-ent-list-rc'
+    key = 'greedy-ent-list-%s' %(self._opt)
 
     str = json.dumps(ent_list)
     self._greedy_db.hset(key, query_id, str)
 
-    #key = 'greedy-cutoff-c'
-    key = 'greedy-cutoff-rc'
+    key = 'greedy-cutoff-%s' %(self._opt)
     self._greedy_db.hset(key, query_id, cutoff)
 
   def save_run_file(self, save_file):
@@ -407,16 +413,17 @@ def main():
   parser.add_argument(
     '--debug', default=False, action='store_true', dest='debug',
     help='print out debugging diagnostics')
-  parser.add_argument('query_id')
   args = parser.parse_args()
 
-  tuner = TuneQueryOptEnt()
+  #opt = 'c'
+  opt = 'rc'
 
-  #qrels_c_key = 'training-c'
-  qrels_c_key = 'testing-c'
+  #t_opt = 'train'
+  t_opt = 'test'
 
-  #qrels_rc_key = 'training-rc'
-  qrels_rc_key = 'testing-rc'
+  tuner = TuneQueryOptEnt(opt, t_opt)
+  train_test_dict = {'train': 'training', 'test': 'testing'}
+  qrels_key = '%s-%s' %(train_test_dict[t_opt], opt)
 
   # run over all the queries
   query_id_list = range(0, 29, 1)
@@ -424,8 +431,7 @@ def main():
 
   for query_id in query_id_list:
     print 'Query %d' % query_id
-    #score = tuner.greedy_tune(str(query_id), qrels_c_key)
-    score = tuner.greedy_tune(str(query_id), qrels_rc_key)
+    score = tuner.greedy_tune(str(query_id), qrels_key)
     score_list.append(score)
 
     # for debug only
@@ -437,10 +443,10 @@ def main():
     print 'Average: %6.3f' % avg
 
   ## save the results accordingly
-  #tuner.save_run_file('runs/train/c-opt_greedy')
-  #tuner.save_run_file('runs/train/rc-opt_greedy')
-  #tuner.save_run_file('runs/test/c-opt_greedy')
-  tuner.save_run_file('runs/test/rc-opt_greedy')
+  path_base = 'runs/nf-cutoff/'
+  file_dict = {'c': 'c-opt_greedy', 'rc': 'rc-opt_greedy'}
+  file_path = '%s%s/%s' %(path_base, t_opt, file_dict[opt])
+  tuner.save_run_file(file_path)
 
 if __name__ == '__main__':
   try:

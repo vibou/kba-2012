@@ -192,9 +192,11 @@ def score_confusion_matrix (scored_doc_list, annotation, debug=False):
     return CM
 
 class TuneQueryOptEnt():
-  def __init__(self):
+  def __init__(self, opt, t_opt):
+    greedy_dict = {'train': RedisDB.train_greedy_db, 'test': RedisDB.test_greedy_db}
+
     self._train_greedy_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.train_greedy_db)
+      db=greedy_dict[t_opt])
 
     self._test_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.test_edmap_db)
@@ -208,21 +210,32 @@ class TuneQueryOptEnt():
     self._ret_list = {}
     self._cutoff_list = {}
 
-  def greedy_tune(self, query_id):
+    self._opt = opt
+    self._t_opt = t_opt
+
+    self._score_mult = 50
+
+  def greedy_tune(self, query_id, opt):
     '''
     Generate the optimized related entity subset using greedy algorithm
     '''
-    # load the optimized entity list and cutoff from DB
-    #key = 'greedy-ent-list-c'
-    key = 'greedy-ent-list-rc'
+    opt_dict = {'c': 1, 'rc':1}
+    if opt not in opt_dict:
+      print 'Invalid opt: %s' % opt
+      return
+
+    # load the optimized entity list from DB
+    greedy_ent_list_dict = {'c':'greedy-ent-list-c', 'rc':'greedy-ent-list-rc'}
+    key = greedy_ent_list_dict[opt]
     str = self._train_greedy_db.hget(key, query_id)
     sel_eid = json.loads(str)
 
-    #key = 'greedy-cutoff-c'
-    key = 'greedy-cutoff-rc'
+    # load the optimized cutoff from DB
+    greedy_cutoff_dict = {'c':'greedy-cutoff-c', 'rc':'greedy-cutoff-rc'}
+    key = greedy_cutoff_dict[opt]
     cutoff = int(self._train_greedy_db.hget(key, query_id))
 
-    scored_doc_list = self.get_doc_list(query_id, sel_eid.keys())
+    scored_doc_list = self.get_doc_list(query_id, sel_eid)
     self._ret_list[query_id] = scored_doc_list
     self._cutoff_list[query_id] = cutoff
 
@@ -242,67 +255,38 @@ class TuneQueryOptEnt():
           cutoff = self._cutoff_list[query_id]
           for did in scored_doc_list:
             score = scored_doc_list[did]
-            if score > cutoff:
-              f.write('udel_fang UDInfo_OPT_ENT %s %s %d\n'
-                  %(did, query, 1000))
+            #if score > cutoff:
+            f.write('udel_fang UDInfo_OPT_ENT %s %s %d\n'
+                %(did, query, score))
+                  #%(did, query, 1000))
             #else:
               #print 'Skipping %s %s %d %d' %(did, query, score, cutoff)
     except IOError as e:
       print 'Failed to save file: %s' % save_file
 
-  def max_perf(self, query_id, eid_list, qrels):
-    '''
-    Get the maximum performance given an entity list
-    '''
-    scored_doc_list = self.get_doc_list(query_id, eid_list)
-
-    # applying filtering over the scored document on different cutoffs
-    CM = score_confusion_matrix(scored_doc_list, qrels)
-    scores = performance_metrics(CM)
-    (cutoff, max) = self.max_score(scores, 'F')
-    return (cutoff, max)
-
-  def get_doc_list(self, query_id, eid_list):
+  def get_doc_list(self, query_id, eid_dict):
     '''
     Get the scored doc list for a given related entity list
     '''
-    key = 'e2d-map-%s' % query_id
-    eid_list.sort(key=lambda x: int(x))
-    e2d_list = self._test_edmap_db.hmget(key, eid_list)
-
-    # generate the document list
     scored_doc_list = {}
-    for e2d_str in e2d_list:
+    e_num = len(eid_dict)
+
+    key = 'e2d-map-%s' % query_id
+    for eid  in eid_dict:
+      # the linear kernel for entity weighting
+      e_weight = e_num - int(eid_dict[eid]) + 1
+      e2d_str = self._test_edmap_db.hget(key, eid)
+
       if None == e2d_str:
         continue
       e2d = json.loads(e2d_str)
       for did in e2d:
-        score = e2d[did]
+        score = e2d[did] * self._score_mult * e_weight
         if did not in scored_doc_list:
           scored_doc_list[did] = 0
         scored_doc_list[did] += score
 
     return scored_doc_list
-
-  def max_score(self, scores, measure):
-    '''
-    Get the maximum scores from a score list with different cutoffs
-    Valid measures include 'P', 'R', 'F' and 'SU'
-    '''
-    measure_list = {'P':1, 'R':1, 'F':1, 'SU':1}
-    if measure not in measure_list:
-      print 'Invalid measure: %s' % measure
-      return 0.0
-
-    max = 0.0
-    max_cf = 0
-    for cutoff in sorted(scores.keys()):
-      score = scores[cutoff][measure]
-      if score > max:
-        max = score
-        max_cf = cutoff
-
-    return (max_cf, max)
 
 def main():
   parser = argparse.ArgumentParser(description=__doc__, usage=__doc__)
@@ -314,13 +298,23 @@ def main():
   # run over all the queries
   query_id_list = range(0, 29, 1)
 
-  tuner = TuneQueryOptEnt()
+  #opt = 'c'
+  opt = 'rc'
+
+  #t_opt = 'train'
+  t_opt = 'test'
+
+  tuner = TuneQueryOptEnt(opt, t_opt)
   for query_id in query_id_list:
     print 'Query %d' % query_id
-    tuner.greedy_tune(str(query_id))
+    tuner.greedy_tune(str(query_id), opt)
 
-  #tuner.save_run_file('runs/tune/c-opt_greedy')
-  tuner.save_run_file('runs/tune/rc-opt_greedy')
+  path_base = 'runs/nf-cutoff/'
+  path_apd_dict = {'train': 'tune', 'test': 'test'}
+  file_dict = {'c': 'c-opt_greedy', 'rc': 'rc-opt_greedy'}
+  file_path = '%s%s/%s' %(path_base, path_apd_dict[t_opt], file_dict[opt])
+
+  tuner.save_run_file(file_path)
 
 if __name__ == '__main__':
   try:
