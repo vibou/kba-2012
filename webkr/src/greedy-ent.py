@@ -208,7 +208,7 @@ class TuneQueryOptEnt():
       db=RedisDB.qrels_db)
 
     self._rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.rel_ent_dist_db)
+      db=RedisDB.ent_db)
 
     self._ret_list = {}
     self._cutoff_list = {}

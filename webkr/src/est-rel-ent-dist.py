@@ -31,7 +31,7 @@ g_rev_hash = {}
 g_doc_list = {}
 
 g_rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-    db=RedisDB.rel_ent_dist_db)
+    db=RedisDB.ent_db)
 
 g_exact_match_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
     db=RedisDB.train_doc_db)

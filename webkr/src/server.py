@@ -659,7 +659,7 @@ class Application(tornado.web.Application):
 
     # global database connections for all handles
     self._rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-        db=RedisDB.rel_ent_dist_db)
+        db=RedisDB.ent_db)
 
     self._train_doc_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.train_doc_db)

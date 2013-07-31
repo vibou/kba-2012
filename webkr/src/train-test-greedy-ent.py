@@ -205,7 +205,7 @@ class TuneQueryOptEnt():
       db=RedisDB.qrels_db)
 
     self._rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.rel_ent_dist_db)
+      db=RedisDB.ent_db)
 
     self._ret_list = {}
     self._cutoff_list = {}
@@ -255,7 +255,11 @@ class TuneQueryOptEnt():
           cutoff = self._cutoff_list[query_id]
           for did in scored_doc_list:
             score = scored_doc_list[did]
-            #if score > cutoff:
+            if score <= cutoff * self._score_mult + 100:
+              continue
+            # clamp score above 1000 to 1000
+            if score > 1000:
+              score = 1000
             f.write('udel_fang UDInfo_OPT_ENT %s %s %d\n'
                 %(did, query, score))
                   #%(did, query, 1000))
@@ -281,9 +285,10 @@ class TuneQueryOptEnt():
         continue
       e2d = json.loads(e2d_str)
       for did in e2d:
-        score = e2d[did] * self._score_mult * e_weight
+        score = e2d[did] * self._score_mult
+        #score = e2d[did] * self._score_mult * e_weight
         if did not in scored_doc_list:
-          scored_doc_list[did] = 0
+          scored_doc_list[did] = 100
         scored_doc_list[did] += score
 
     return scored_doc_list
@@ -301,15 +306,16 @@ def main():
   #opt = 'c'
   opt = 'rc'
 
-  #t_opt = 'train'
-  t_opt = 'test'
+  t_opt = 'train'
+  #t_opt = 'test'
 
   tuner = TuneQueryOptEnt(opt, t_opt)
   for query_id in query_id_list:
     print 'Query %d' % query_id
     tuner.greedy_tune(str(query_id), opt)
 
-  path_base = 'runs/nf-cutoff/'
+  path_base = 'runs/uniform/'
+  #path_base = 'runs/linear/'
   path_apd_dict = {'train': 'tune', 'test': 'test'}
   file_dict = {'c': 'c-opt_greedy', 'rc': 'rc-opt_greedy'}
   file_path = '%s%s/%s' %(path_base, path_apd_dict[t_opt], file_dict[opt])

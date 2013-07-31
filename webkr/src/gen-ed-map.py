@@ -45,7 +45,7 @@ class WikiMatch():
       db=RedisDB.test_doc_db)
 
   _rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
-      db=RedisDB.rel_ent_dist_db)
+      db=RedisDB.ent_db)
 
   _edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       #db=RedisDB.train_edmap_db)

@@ -8,10 +8,13 @@ class RedisDB(object):
     host = "localhost"
     port = 6500
 
-    rel_ent_dist_db = 0
+    ent_db = 0
     qrels_db = 4
     train_greedy_db = 5
     test_greedy_db = 6
+
+    # for temporal pattern inspection
+    temp_db = 1
 
     # all the documents come from Balog's list published with OAIR paper
     train_edmap_db = 7
