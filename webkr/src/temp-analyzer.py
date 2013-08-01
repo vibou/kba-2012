@@ -4,6 +4,8 @@ Apply different temporal analytical methods over the data the mine the latent
 relations between topic entity and its related entities
 
 '''
+## use float division instead of integer division
+from __future__ import division
 
 import re
 import os
@@ -15,6 +17,7 @@ import time
 import datetime
 from collections import defaultdict
 from cStringIO import StringIO
+import numpy as np
 
 import redis
 from config import RedisDB
@@ -26,7 +29,7 @@ def log(m, newline='\n'):
 # http://stackoverflow.com/a/1060330/219617
 def daterange(start_date, end_date):
   for n in range(int ((end_date - start_date).days)):
-    yield start_date + timedelta(n)
+    yield start_date + datetime.timedelta(n)
 
 class DictItem(dict):
   """
@@ -38,16 +41,10 @@ class DictItem(dict):
     except KeyError:
       raise AttributeError(name)
 
-class WikiMatch():
+class TempAnalyzer():
   '''
   Apply exact matching
   '''
-
-  _doc_item_list = defaultdict(list)
-
-  _ent2id_hash = {}   # related entity to ID hash
-  _e2d_hash = {}
-  _d2e_hash = {}
 
   _doc_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.train_doc_db)
@@ -62,7 +59,10 @@ class WikiMatch():
   _test_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.test_edmap_db)
 
-  def temp_correl(self, query_id):
+  _temp_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.temp_db)
+
+  def cor_rel(self, query_id):
     '''
     process the streaming item one by one
     '''
@@ -70,28 +70,74 @@ class WikiMatch():
     query = self._ent_db.hget(RedisDB.query_ent_hash, query_id)
 
     # collect all related entities throught all revisions
+    key = 'e2d-map-%s' % query_id
+    eid_keys = self._test_edmap_db.hkeys(key)
+    eid_keys.sort(key=lambda x: int(x))
     key = 'ent-list-%s' % query_id
     db_item = self._test_edmap_db.hmget(key, eid_keys)
     log('%d entities' % len(db_item))
 
     ent_list = []
     for idx, ent in enumerate(db_item):
+      eid = eid_keys[idx]
       item = DictItem()
       item['eid'] = eid
       item['ent'] = ent
       ent_list.append(item)
 
-    # clear the hashes
-    self._ent2id_hash.clear()
-    self._e2d_hash.clear()
-    self._d2e_hash.clear()
+    # estimate the temporal distribution for topic entity and its related
+    # entities
+    topic_dist = self.est_doc_dist_query(query_id)
+    topic_norm_list = self.normalize_dist(topic_dist)
+
+    correl_key = 'correl-%s' % query_id
+    for ent in ent_list:
+      ent_id = ent['eid']
+      ent_str = ent['ent']
+      ent_dist = self.est_doc_dist_ent(query_id, ent_id)
+
+      if len(topic_dist) != len(ent_dist):
+        log('dist length mismatch: %s - %s [%s] (%d : %d)' %(query_id, ent_id,
+          ent_str, len(topic_dist), len(ent_dist)))
+        continue
+
+      ent_norm_list = self.normalize_dist(ent_dist)
+      correl_array = np.correlate(topic_norm_list, ent_norm_list)
+      if 1 != len(correl_array):
+        log('Invalid correlation array: %s - %s [%s]' %(query_id, ent_id,
+          ent_str))
+      correl = correl_array[0]
+
+      # write to DB
+      self._temp_db.hset(correl_key, ent_id, correl)
+
+      #print 'Correlation [ %s - %s (%s) ]: %f' % (query_id, ent_id, ent_str,
+          #correl)
+
+  def normalize_dist(self, dist_hash):
+    '''
+    Apply normalization over the temporal distribution, generate the list of
+    float values
+    '''
+    sum = 0
+    norm_list = []
+    for d_time in dist_hash:
+      val = dist_hash[d_time]
+      norm_list.append(val)
+      sum = sum + val
+
+    for idx, val in enumerate(norm_list):
+      val = val / sum
+      norm_list[idx] = val
+
+    return norm_list
 
   def date_range(self):
     '''
     Date range for whole data (both training and testing data)
     '''
-    start_date = date(2011, 10, 07)
-    end_date = date(2012, 5, 2)
+    start_date = datetime.date(2011, 10, 07)
+    end_date = datetime.date(2012, 5, 3)
     return daterange(start_date, end_date)
 
   def est_doc_dist_query(self, query_id):
@@ -100,14 +146,14 @@ class WikiMatch():
     '''
     doc_dist_hash = {}
 
-    # padding 0 for all avaiable dates
-    for day in self.date_range():
+    # padding 0 for all available dates
+    for d_time in self.date_range():
       d_date = '%d-%.2d-%.2d' %(d_time.year, d_time.month, d_time.day)
       doc_dist_hash[d_date] = 0
 
     # training data
     key = 'd2e-map-%s' % query_id
-    did_keys = self._edmap_db.hkeys(key)
+    did_keys = self._train_edmap_db.hkeys(key)
     for did in did_keys:
       epoch = float(did.split('-')[0])
       d_time = datetime.datetime.utcfromtimestamp(epoch)
@@ -119,7 +165,7 @@ class WikiMatch():
 
     # testing data
     key = 'd2e-map-%s' % query_id
-    did_keys = self._edmap_db.hkeys(key)
+    did_keys = self._test_edmap_db.hkeys(key)
     for did in did_keys:
       epoch = float(did.split('-')[0])
       d_time = datetime.datetime.utcfromtimestamp(epoch)
@@ -142,22 +188,23 @@ class WikiMatch():
       return
 
     doc_dist_hash = {}
-    # padding 0 for all avaiable dates
-    for day in self.date_range():
+    # padding 0 for all available dates
+    for d_time in self.date_range():
       d_date = '%d-%.2d-%.2d' %(d_time.year, d_time.month, d_time.day)
       doc_dist_hash[d_date] = 0
 
     # training data
-    e2d_str = self._train_edmap_db.hget(key, ent_id)
-    e2d = json.loads(e2d_str)
-    for did in e2d:
-      epoch = float(did.split('-')[0])
-      d_time = datetime.datetime.utcfromtimestamp(epoch)
-      d_date = '%d-%.2d-%.2d' %(d_time.year, d_time.month, d_time.day)
-      if d_date not in doc_dist_hash:
-        doc_dist_hash[d_date] = 1
-      else:
-        doc_dist_hash[d_date] += 1
+    if self._train_edmap_db.hexists(key, ent_id):
+      e2d_str = self._train_edmap_db.hget(key, ent_id)
+      e2d = json.loads(e2d_str)
+      for did in e2d:
+        epoch = float(did.split('-')[0])
+        d_time = datetime.datetime.utcfromtimestamp(epoch)
+        d_date = '%d-%.2d-%.2d' %(d_time.year, d_time.month, d_time.day)
+        if d_date not in doc_dist_hash:
+          doc_dist_hash[d_date] = 1
+        else:
+          doc_dist_hash[d_date] += 1
 
     # testing data
     e2d_str = self._test_edmap_db.hget(key, ent_id)
@@ -179,7 +226,7 @@ def main():
   query_id_list = range(0, 29, 1)
   for query_id in query_id_list:
     log('Query %d' % query_id)
-    analyzer.temp_correl(query_id)
+    analyzer.cor_rel(query_id)
 
 if __name__ == '__main__':
   try:
