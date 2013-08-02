@@ -10,11 +10,12 @@ from __future__ import division
 import re
 import os
 import sys
-import traceback
 import gzip
 import json
 import time
+import math
 import datetime
+import traceback
 from collections import defaultdict
 from cStringIO import StringIO
 import numpy as np
@@ -59,12 +60,70 @@ class TempAnalyzer():
   _test_edmap_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.test_edmap_db)
 
+  _qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.qrels_db)
+
   _temp_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.temp_db)
 
+  _total_doc_num = 36546 + 63564
+
+  def idf(self, query_id):
+    '''
+    Estimate the IDF of topic entity and its related entities
+    '''
+    # collect all related entities throught all revisions
+    key = 'e2d-map-%s' % query_id
+    eid_keys = self._test_edmap_db.hkeys(key)
+    eid_keys.sort(key=lambda x: int(x))
+    key = 'ent-list-%s' % query_id
+    db_item = self._test_edmap_db.hmget(key, eid_keys)
+    log('%d entities' % len(db_item))
+
+    idf_key = 'idf-%s' % query_id
+
+    ent_list = []
+    for idx, ent in enumerate(db_item):
+      ent_id = eid_keys[idx]
+      doc_list = self.ent_doc_list(query_id, ent_id)
+      doc_num = len(doc_list)
+      p_occ = doc_num / self._total_doc_num
+      log_idf = - math.log(p_occ)
+      #print 'IDF [%s / %s (%s)] %f' %(query_id, ent_id, ent, log_idf)
+      # write to DB
+      self._temp_db.hset(idf_key, ent_id, log_idf)
+
+  def ent_doc_list(self, query_id, ent_id):
+    '''
+    Get all the documents which mention the related entity
+    '''
+    key = 'e2d-map-%s' % query_id
+    if not self._test_edmap_db.hexists(key, ent_id):
+      msg = 'Invalid ent_id: %s' % ent_id
+      log(msg)
+      return
+
+    doc_hash = {}
+
+    # training data
+    if self._train_edmap_db.hexists(key, ent_id):
+      e2d_str = self._train_edmap_db.hget(key, ent_id)
+      e2d = json.loads(e2d_str)
+      for did in e2d:
+        doc_hash[did] = 1
+
+    # testing data
+    e2d_str = self._test_edmap_db.hget(key, ent_id)
+    e2d = json.loads(e2d_str)
+    for did in e2d:
+      doc_hash[did] = 1
+
+    return doc_hash
+
   def cor_rel(self, query_id):
     '''
-    process the streaming item one by one
+    Estimate the corrleation between the temporal distribution of topic entity
+    and its related entities
     '''
     # get the topic entity
     query = self._ent_db.hget(RedisDB.query_ent_hash, query_id)
@@ -226,7 +285,8 @@ def main():
   query_id_list = range(0, 29, 1)
   for query_id in query_id_list:
     log('Query %d' % query_id)
-    analyzer.cor_rel(query_id)
+    #analyzer.cor_rel(query_id)
+    analyzer.idf(query_id)
 
 if __name__ == '__main__':
   try:
