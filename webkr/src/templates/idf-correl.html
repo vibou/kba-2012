@@ -1,0 +1,154 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>IDF - Temporal Correlaton</title>
+
+		<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+		<script type="text/javascript">
+$(function () {
+    var chart;
+    $(document).ready(function() {
+    
+        // define the options
+        var options = {
+    
+            chart: {
+                renderTo: 'container',
+                type: 'scatter',
+                zoomType: 'xy',
+                spacingLeft: 20,
+                spacingRight: 20,
+            },
+    
+            title: {
+                text: 'IDF - Temporal Correlation View'
+            },
+    
+            subtitle: {
+                text: 'Click and drag in the plot area to zoom in'
+            },
+    
+            xAxis: {
+                title: {
+                  enabled: true,
+                  text: 'log(N/df(ent))'
+                },
+                startOnTick: true,
+                endOnTick: true,
+                showLastLabel: true
+            },
+    
+            yAxis: {
+                title: {
+                  text: 'Temporal Correlation'
+                }
+            },
+    
+            legend: {
+              layout: 'vertical',
+              align: 'left',
+              verticalAlign: 'top',
+              x: 100,
+              y: 70,
+              floating: true,
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1
+            },
+    
+            plotOptions: {
+              scatter: {
+                marker: {
+                  radius: 5,
+                  states: {
+                    hover: {
+                      enabled: true,
+                      lineColor: 'rgb(100,100,100)'
+                    }
+                  }
+                },
+                states: {
+                  hover: {
+                    marker: {
+                      enabled: false
+                    }
+                  }
+                }
+              }
+            },
+    
+            series: [{
+                name: 'relevant entity',
+                color: 'rgba(255, 0, 0, .5)',
+            }, {
+                name: 'non-relevant entity',
+                color: 'rgba(0, 0, 255, .5)',
+            }]
+        };
+    
+    
+        // Load data asynchronously using jQuery. On success, add the data
+        // to the options and initiate the chart.
+        // This data is obtained by exporting a GA custom report to TSV.
+        // http://api.jquery.com/jQuery.get/
+        jQuery.get('/idf/correl/dist', null, function(tsv, state, xhr) {
+            var lines = [],
+                date,
+    
+                // set up the two data series
+                non_rel_values = [],
+                rel_values = [];
+    
+            // inconsistency
+            if (typeof tsv !== 'string') {
+                tsv = xhr.responseText;
+            }
+    
+            // split the data return into lines and parse them
+            tsv = tsv.split(/\n/g);
+            jQuery.each(tsv, function(i, line) {
+              // all data lines start with a double quote
+              line = line.split(/\t/);
+              if(3 != line.length){
+                return;
+              }
+
+              if('0' == line[2]){
+                non_rel_values.push([
+                  parseFloat(line[0]),
+                  parseFloat(line[1])
+                ]);
+              }
+              
+              if('1' == line[2]){
+                rel_values.push([
+                  parseFloat(line[0]),
+                  parseFloat(line[1])
+                ]);
+              }
+    
+            });
+    
+            options.series[0].data = rel_values;
+            options.series[1].data = non_rel_values;
+            chart = new Highcharts.Chart(options);
+        });
+
+    });
+    
+});
+		</script>
+	</head>
+	<body>
+<script src="http://code.highcharts.com/highcharts.js"></script>
+<script src="http://code.highcharts.com/modules/exporting.js"></script>
+
+<!-- Additional files for the Highslide popup effect -->
+<script type="text/javascript" src="http://www.highcharts.com/highslide/highslide-full.min.js"></script>
+<script type="text/javascript" src="http://www.highcharts.com/highslide/highslide.config.js" charset="utf-8"></script>
+<link rel="stylesheet" type="text/css" href="http://www.highcharts.com/highslide/highslide.css" />
+
+<p><a href="/">&lt;- Return</a></p>
+<div id="container" style="min-width: 400px; height: 700px; margin: 0 auto"></div>
+</body>
+</html>

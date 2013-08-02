@@ -33,8 +33,8 @@ class DictItem(dict):
 
 class BaseHandler(tornado.web.RequestHandler):
   @property
-  def _rel_ent_dist_db(self):
-    return self.application._rel_ent_dist_db
+  def _ent_db(self):
+    return self.application._ent_db
 
   @property
   def _train_doc_db(self):
@@ -65,8 +65,8 @@ class BaseHandler(tornado.web.RequestHandler):
     return self.application._qrels_db
 
   @property
-  def _test_db(self):
-    return self.application._test_db
+  def _temp_db(self):
+    return self.application._temp_db
 
 class HomeHandler(BaseHandler):
   def get(self):
@@ -75,14 +75,14 @@ class HomeHandler(BaseHandler):
 
 class EntIndexHandler(BaseHandler):
   def get(self):
-    num = self._rel_ent_dist_db.llen(RedisDB.query_ent_list)
+    num = self._ent_db.llen(RedisDB.query_ent_list)
     if 0 == num:
       msg = 'no item found'
       self.render("error.html", msg=msg)
       return
 
-    query_ent_list = self._rel_ent_dist_db.lrange(RedisDB.query_ent_list, 0, num)
-    query_ent_hash = self._rel_ent_dist_db.hmget(RedisDB.query_ent_hash,
+    query_ent_list = self._ent_db.lrange(RedisDB.query_ent_list, 0, num)
+    query_ent_hash = self._ent_db.hmget(RedisDB.query_ent_hash,
         query_ent_list)
     ret_items = []
     for index in query_ent_list:
@@ -96,7 +96,7 @@ class EntIndexHandler(BaseHandler):
 class EntViewHandler(BaseHandler):
   def get(self, ent_id):
     hash_key = 'query-%s' % ent_id
-    keys = self._rel_ent_dist_db.hkeys(hash_key)
+    keys = self._ent_db.hkeys(hash_key)
     if 0 == len(keys):
       msg = 'no data found'
       self.render("error.html", msg=msg)
@@ -104,11 +104,11 @@ class EntViewHandler(BaseHandler):
 
     ## retrieve the list of revisions
     rel_ent_hash_key = 'query-rel-ent-%s' % ent_id
-    rel_ent_keys = self._rel_ent_dist_db.hkeys(rel_ent_hash_key)
+    rel_ent_keys = self._ent_db.hkeys(rel_ent_hash_key)
 
     ## sort the keys by date: http://stackoverflow.com/q/2589479
     rel_ent_keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
-    db_item = self._rel_ent_dist_db.hmget(rel_ent_hash_key, rel_ent_keys)
+    db_item = self._ent_db.hmget(rel_ent_hash_key, rel_ent_keys)
 
     date_list = []
 
@@ -118,36 +118,36 @@ class EntViewHandler(BaseHandler):
       item['num'] = len(rel_ent_str.split('='))
       date_list.append(item)
 
-    ent = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
+    ent = self._ent_db.hget(RedisDB.query_ent_hash, ent_id)
     self.render("ent-view.html", ent_id=ent_id, ent=ent, date_list=date_list)
 
 class EntRevHandler(BaseHandler):
   def get(self, ent_id, date):
     ## check whether this revision exists or not
     rel_ent_hash_key = 'query-rel-ent-%s' % ent_id
-    if not self._rel_ent_dist_db.hexists(rel_ent_hash_key, date):
+    if not self._ent_db.hexists(rel_ent_hash_key, date):
       msg = 'no data found'
       self.render("error.html", msg=msg)
       return
 
-    rel_ent_str = self._rel_ent_dist_db.hget(rel_ent_hash_key, date)
+    rel_ent_str = self._ent_db.hget(rel_ent_hash_key, date)
     rel_ent_list = rel_ent_str.split('=')
 
-    ent = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, ent_id)
+    ent = self._ent_db.hget(RedisDB.query_ent_hash, ent_id)
     self.render("ent-rev.html", ent_id=ent_id, ent=ent, date=date,
         rel_ent_list=rel_ent_list)
 
 class EntDistHandler(BaseHandler):
   def get(self, ent_id):
     hash_key = 'query-%s' % ent_id
-    keys = self._rel_ent_dist_db.hkeys(hash_key)
+    keys = self._ent_db.hkeys(hash_key)
     if 0 == len(keys):
       msg = 'no dist data found'
       self.render("error.html", msg=msg)
       return
 
     rel_num_hash_key = 'query-rel-ent-num-%s' % ent_id
-    rel_num_keys = self._rel_ent_dist_db.hkeys(rel_num_hash_key)
+    rel_num_keys = self._ent_db.hkeys(rel_num_hash_key)
     if 0 == len(rel_num_keys):
       msg = 'no rel_num data found'
       self.render("error.html", msg=msg)
@@ -160,7 +160,7 @@ class EntDistHandler(BaseHandler):
 
     eval_hash_key = 'query-opt-C-F-%s' % ent_id
     #eval_hash_key = 'query-opt-CR-F-%s' % ent_id
-    eval_keys = self._rel_ent_dist_db.hkeys(eval_hash_key)
+    eval_keys = self._ent_db.hkeys(eval_hash_key)
     if 0 == len(eval_keys):
       msg = 'no eval_dist data found'
       self.render("error.html", msg=msg)
@@ -172,7 +172,7 @@ class EntDistHandler(BaseHandler):
       return
 
     cr_eval_hash_key = 'query-opt-CR-F-%s' % ent_id
-    cr_eval_keys = self._rel_ent_dist_db.hkeys(cr_eval_hash_key)
+    cr_eval_keys = self._ent_db.hkeys(cr_eval_hash_key)
     if 0 == len(cr_eval_keys):
       msg = 'no cr_eval_dist data found'
       self.render("error.html", msg=msg)
@@ -187,10 +187,10 @@ class EntDistHandler(BaseHandler):
     keys.sort(key=lambda x: datetime.datetime.strptime(x, '%Y-%m'))
 
     # retrieve from DB
-    db_item = self._rel_ent_dist_db.hmget(hash_key, keys)
-    rel_num_db_item = self._rel_ent_dist_db.hmget(rel_num_hash_key, keys)
-    eval_db_item = self._rel_ent_dist_db.hmget(eval_hash_key, keys)
-    cr_eval_db_item = self._rel_ent_dist_db.hmget(cr_eval_hash_key, keys)
+    db_item = self._ent_db.hmget(hash_key, keys)
+    rel_num_db_item = self._ent_db.hmget(rel_num_hash_key, keys)
+    eval_db_item = self._ent_db.hmget(eval_hash_key, keys)
+    cr_eval_db_item = self._ent_db.hmget(cr_eval_hash_key, keys)
 
     line = 'date\tclose\n'
     self.write(line)
@@ -224,13 +224,13 @@ class TuneHandler(BaseHandler):
       return
 
     hash_key = 'query-%s' % query_id
-    keys = self._rel_ent_dist_db.hkeys(hash_key)
+    keys = self._ent_db.hkeys(hash_key)
     if 0 == len(keys):
       msg = 'no data found'
       self.render("error.html", msg=msg)
       return
 
-    query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
+    query = self._ent_db.hget(RedisDB.query_ent_hash, query_id)
 
     ## retrieve the list of related entities
     ## here we only retrieve the entities which have occurred in the relevant
@@ -541,13 +541,13 @@ class TempHandler(BaseHandler):
   '''
   def get(self, query_id):
     hash_key = 'query-%s' % query_id
-    keys = self._rel_ent_dist_db.hkeys(hash_key)
+    keys = self._ent_db.hkeys(hash_key)
     if 0 == len(keys):
       msg = 'no data found'
       self.render("error.html", msg=msg)
       return
 
-    query = self._rel_ent_dist_db.hget(RedisDB.query_ent_hash, query_id)
+    query = self._ent_db.hget(RedisDB.query_ent_hash, query_id)
 
     ## retrieve the list of related entities
     ## here we only retrieve the entities which have occurred in the relevant
@@ -630,6 +630,59 @@ class TempEntHandler(BaseHandler):
       line = '%s\t%d\n' %(d_date, num)
       self.write(line)
 
+class IDFCorrelHandler(BaseHandler):
+  '''
+  Return the temporal distribution of a related entity
+  '''
+  def get(self):
+    self.render("idf-correl.html")
+
+class IDFCorrelDistHandler(BaseHandler):
+  '''
+  Return the distribution of IDF and Correl of related entities
+
+  idf correl type
+
+  type:
+  0 : non-relevant entities
+  1 : relevant entities (selected by greedy algorithm)
+  '''
+  def get(self):
+    query_num = self._ent_db.llen(RedisDB.query_ent_list)
+    if 0 == query_num:
+      msg = 'no item found'
+      self.render("error.html", msg = msg)
+      return
+
+    query_ent_list = self._ent_db.lrange(RedisDB.query_ent_list, 0, query_num)
+    for query_id in query_ent_list:
+      # get the list of relevant entities
+      key = 'greedy-ent-list-c'
+      #key = 'greedy-ent-list-rc'
+
+      rel_eid_str = self._train_greedy_db.hget(key, query_id)
+      rel_eid = json.loads(rel_eid_str)
+
+      # collect all related entities throught all revisions
+      key = 'e2d-map-%s' % query_id
+      eid_keys = self._test_edmap_db.hkeys(key)
+      eid_keys.sort(key=lambda x: int(x))
+      key = 'ent-list-%s' % query_id
+      db_item = self._test_edmap_db.hmget(key, eid_keys)
+
+      idf_key = 'idf-%s' % query_id
+      correl_key = 'correl-%s' % query_id
+
+      ent_list = []
+      for idx, ent in enumerate(db_item):
+        eid = eid_keys[idx]
+        idf = self._temp_db.hget(idf_key, eid)
+        correl = self._temp_db.hget(correl_key, eid)
+        if eid in rel_eid:
+          self.write('%s\t%s\t1\n' %(idf, correl))
+        else:
+          self.write('%s\t%s\t0\n' %(idf, correl))
+
 class Application(tornado.web.Application):
   def __init__(self):
     handlers = [
@@ -648,6 +701,9 @@ class Application(tornado.web.Application):
       (r"/temp/(\d+)", TempHandler),
       (r"/temp/(\d+)/query", TempQueryHandler),
       (r"/temp/(\d+)/(\d+)", TempEntHandler),
+
+      (r"/idf/correl", IDFCorrelHandler),
+      (r"/idf/correl/dist", IDFCorrelDistHandler),
     ]
 
     settings = dict(
@@ -658,7 +714,7 @@ class Application(tornado.web.Application):
     tornado.web.Application.__init__(self, handlers, **settings)
 
     # global database connections for all handles
-    self._rel_ent_dist_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+    self._ent_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
         db=RedisDB.ent_db)
 
     self._train_doc_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
@@ -681,6 +737,9 @@ class Application(tornado.web.Application):
 
     self._qrels_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
       db=RedisDB.qrels_db)
+
+    self._temp_db = redis.Redis(host=RedisDB.host, port=RedisDB.port,
+      db=RedisDB.temp_db)
 
 def main():
   tornado.options.parse_command_line()
